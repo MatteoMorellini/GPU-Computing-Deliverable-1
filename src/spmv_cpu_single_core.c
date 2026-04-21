@@ -2,6 +2,7 @@
 #include <dirent.h>
 #include <string.h>
 #include "mtx_reader.h"
+#include "coo_to_csr.h"
 
 int main(){
 
@@ -24,8 +25,8 @@ int main(){
         printf("%s\n", dir->d_name);
         snprintf(path, sizeof(path), "%s%s", folder, dir->d_name);
         COO_Matrix A = read_mtx(path);
-
-        printf("Rows: %d\n", A.rows);
+        CSR_Matrix csr_A = coo_to_csr(A);
+        printf("Rows: %d\n", csr_A.rows);
     }
     closedir(d);
     return 0;

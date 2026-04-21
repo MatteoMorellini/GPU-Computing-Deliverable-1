@@ -23,7 +23,7 @@ COO_Matrix read_mtx(const char *filename) {
     mat.row = malloc(mat.nnz * sizeof(int));
     mat.col = malloc(mat.nnz * sizeof(int));
     mat.data = malloc(mat.nnz * sizeof(double)); 
-    // TODO: convert from double to int
+    // TODO: #1 convert from double to int
     // at this point the pointer is positioned at the 1st matrix entry line
     for(int i=0; i<mat.nnz; i++){
         fscanf(f, "%d %d %lf", &mat.row[i], &mat.col[i], &mat.data[i]);

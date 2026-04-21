@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -Iinclude
-SRC = src/spmv_cpu_single_core.c src/mtx_reader.c
+SRC = src/spmv_cpu_single_core.c src/mtx_reader.c src/coo_to_csr.c
 OUT = bin/program
 
 all:
