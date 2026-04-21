@@ -11,6 +11,6 @@ typedef struct {
 } COO_Matrix;
 
 COO_Matrix read_mtx(const char *filename);
-void free_coo_matrix(COO_Matrix *mat);
+void free_coo(COO_Matrix *mat);
 
 #endif
