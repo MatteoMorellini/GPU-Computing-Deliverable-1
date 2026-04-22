@@ -15,29 +15,14 @@
 
 typedef struct {
 
-    // -------------------------------------------------------
-    // IDENTIFICATION METADATA
-    // -------------------------------------------------------
-
-    char name[256];            // Matrix filename (identifier of dataset)
+    char name[256];           
     char format[32];           // Sparse storage format used (e.g., CSR, COO, ELL)
     char implementation[32];   // Kernel implementation (e.g., CPU single-core, OpenMP, CUDA)
-
-    // -------------------------------------------------------
-    // BASIC MATRIX DIMENSIONS
-    // -------------------------------------------------------
-
-    int rows;                  // Number of matrix rows (size of output vector y)
-    int cols;                  // Number of matrix columns (size of input vector x)
-    int nnz;                   // Total number of nonzero elements (dominant factor in SpMV cost)
-
-    // -------------------------------------------------------
-    // PERFORMANCE METRICS
-    // These quantify runtime stability and computational throughput.
-    // -------------------------------------------------------
+    int rows;                 
+    int cols;                  
+    int nnz;                   
 
     double avg_time_s;         // Average execution time of SpMV kernel (excluding preprocessing)
-
     double std_time_s;         // Runtime variability across repetitions; indicates stability of memory behavior
                                // and sensitivity to cache / OS scheduling effects
 
