@@ -3,7 +3,7 @@
 #ifndef GENERATE_DENSE_H
 #define GENERATE_DENSE_H
 
-float* generate_dense(float cols);
+void fill_dense(float *x, size_t n);
 void free_dense(float* dense);
 
 #endif

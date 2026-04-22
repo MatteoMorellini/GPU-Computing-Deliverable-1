@@ -10,7 +10,6 @@ typedef struct {
     double *data;
 } COO_Matrix;
 
-COO_Matrix read_mtx(const char *filename);
+void read_mtx(const char *filename, COO_Matrix *mat);
 void free_coo(COO_Matrix *mat);
-
 #endif

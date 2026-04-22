@@ -7,11 +7,10 @@
 #include <string.h>
 #include "mtx_reader.h"
 
-COO_Matrix read_mtx(const char *filename) {
+void read_mtx(const char *filename, COO_Matrix *mat) {
     FILE *f = fopen(filename, "r");
     char line[1024];
     char object[64], format[64], field[64], symmetry[64];
-    COO_Matrix mat;
 
     if (!f) {
         fprintf(stderr, "Error opening file %s\n", filename);
@@ -41,21 +40,21 @@ COO_Matrix read_mtx(const char *filename) {
         }
     } while (line[0] == '%');
 
-    if (sscanf(line, "%d %d %d", &mat.rows, &mat.cols, &mat.nnz) != 3) {
+    if (sscanf(line, "%d %d %d", &mat->rows, &mat->cols, &mat->nnz) != 3) {
         fprintf(stderr, "Invalid size line in %s\n", filename);
         exit(1);
     }
 
-    mat.row = malloc((size_t)mat.nnz * sizeof(int));
-    mat.col = malloc((size_t)mat.nnz * sizeof(int));
-    mat.data = malloc((size_t)mat.nnz * sizeof(double));
+    mat->row = malloc((size_t)mat->nnz * sizeof(int));
+    mat->col = malloc((size_t)mat->nnz * sizeof(int));
+    mat->data = malloc((size_t)mat->nnz * sizeof(double));
 
-    if (!mat.row || !mat.col || !mat.data) {
+    if (!mat->row || !mat->col || !mat->data) {
         fprintf(stderr, "Memory allocation failed\n");
         exit(1);
     }
 
-    for (int i = 0; i < mat.nnz; i++) {
+    for (int i = 0; i < mat->nnz; i++) {
         int r, c;
         double v;
         int ret;
@@ -82,18 +81,17 @@ COO_Matrix read_mtx(const char *filename) {
         r--;
         c--;
 
-        if (r < 0 || r >= mat.rows || c < 0 || c >= mat.cols) {
+        if (r < 0 || r >= mat->rows || c < 0 || c >= mat->cols) {
             fprintf(stderr, "Invalid index at entry %d: row=%d col=%d\n", i, r, c);
             exit(1);
         }
 
-        mat.row[i] = r;
-        mat.col[i] = c;
-        mat.data[i] = v;
+        mat->row[i] = r;
+        mat->col[i] = c;
+        mat->data[i] = v;
     }
 
     fclose(f);
-    return mat;
 }
 
 void free_coo(COO_Matrix *mat) {

@@ -7,14 +7,35 @@
 #include "generate_dense.h"
 #include "csr_spvm.h"
 #include "time_lib.h"
+#define REPS 100
+#define WARMUP 5
+
+typedef struct {
+    char   name[256];
+    char format[32];
+    char implementation[32];
+
+    int    rows;
+    int    cols;
+    int    nnz;
+
+    double avg_nnz_per_row;
+    double std_nnz_per_row;
+
+    double avg_time_s;
+    double std_time_s;
+
+    double gflops;
+    int valid; // boolean flag to indicate if the matrix was processed successfully
+    double max_abs_error; // maximum absolute error compared to a reference implementation (CPU)
+} MatrixStats;
 
 int main(){
-
+    srand(0); // set seed for reproducibility
     DIR *d;
     struct dirent *dir;
     char folder[] = "./matrices/";
     char path[1024];
-    double timers[10];
 
     d = opendir(folder);
     if(d == NULL){
@@ -25,17 +46,29 @@ int main(){
     printf("Files in matrices directory:\n");
 
     TIMER_DEF(0);
-    int i = 0;
     while ((dir = readdir(d)) != NULL){
         if (dir->d_name[0] == '.') continue;
-        printf("%s\n", dir->d_name);
-        snprintf(path, sizeof(path), "%s%s", folder, dir->d_name);
-        COO_Matrix A = read_mtx(path);
-        printf("Read matrix %s: %d rows, %d cols, %d non-zeros\n", dir->d_name, A.rows, A.cols, A.nnz);
-        CSR_Matrix csr_A = coo_to_csr(A);
 
-        printf("Matrix %s: %d rows, %d cols, %d non-zeros\n", dir->d_name, csr_A.rows, csr_A.cols, csr_A.nnz);
-        float* x = generate_dense(csr_A.cols);
+        // -------------------------------------------------------
+        // MATRIX LOADING AND CONVERSION SECTION
+
+        snprintf(path, sizeof(path), "%s%s", folder, dir->d_name);
+        COO_Matrix A;
+        read_mtx(path, &A); 
+        printf("Read matrix %s: %d rows, %d cols, %d non-zeros\n", dir->d_name,\
+            A.rows, A.cols, A.nnz);
+        CSR_Matrix csr_A;
+        coo_to_csr(&A, &csr_A);
+            
+        // -------------------------------------------------------
+        // PREPARATION SECTION
+
+        float *x = malloc((size_t)csr_A.cols * sizeof(*x));
+        if (x == NULL) {
+            fprintf(stderr, "Error allocating memory for dense vector\n");
+            return 1;
+        }
+        fill_dense(x, (size_t)csr_A.cols);
 
         float *y = malloc(csr_A.rows * sizeof(float));
         if (y == NULL) {
@@ -43,22 +76,34 @@ int main(){
             return 1;
         }
 
-        TIMER_START(0);
-        spmv_csr(&csr_A, x, y);
-        TIMER_STOP(0);
-        timers[i] = TIMER_ELAPSED(0) / 1e3; // convert to milliseconds 
-        printf("Time taken for %s: %lf ms\n", dir->d_name, timers[i]);
-        i++;
-        /*
-        for(int i = 0; i < csr_A.rows; i++){
-            printf("y[%d] = %f\n", i, y[i]);
-        }*/
+        // -------------------------------------------------------
+        // WARMUP + TIMING SECTION
 
-        //TODO: don't return values from functions but modify them in-place to avoid memory leaks
+        // timer excludes .mtx parsing, COO to CSR conversion, and dense vector
+        for (int r = 0; r < WARMUP; r++)
+            spmv_csr(&csr_A, x, y);  
+
+        TIMER_START(0);
+        for (int r = 0; r < REPS; r++)
+            spmv_csr(&csr_A, x, y);
+        TIMER_STOP(0);
+
+        // -------------------------------------------------------
+        // METRICS SECTION
+         
+        double total_time = TIMER_ELAPSED(0) / 1e6;   // convert to seconds
+        double avg_time = total_time / REPS;
+        double gflops = (2.0 * csr_A.nnz) / (avg_time * 1e9);
+
+        printf("Average time for %s: %.9f s\n", dir->d_name, avg_time);
+        printf("GFLOP/s for %s: %.6f\n", dir->d_name, gflops);
+
         free_coo(&A);
         free_csr(&csr_A);
         free_dense(x);
+        free(y);
     }
+
     closedir(d);
     return 0;
 }

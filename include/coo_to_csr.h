@@ -11,7 +11,7 @@ typedef struct{
     float *values;
 } CSR_Matrix;
 
-CSR_Matrix coo_to_csr(COO_Matrix coo);
+void coo_to_csr(COO_Matrix *coo, CSR_Matrix *csr);
 void free_csr(CSR_Matrix *csr);
 
 #endif
