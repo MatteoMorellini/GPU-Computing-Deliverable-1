@@ -104,6 +104,8 @@ int main(){
         free(y);
     }
 
+    // todo: use geometric mean for FLOP/s across all matrices?
+
     closedir(d);
     return 0;
 }
