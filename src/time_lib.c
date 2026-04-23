@@ -1,6 +1,5 @@
 #include "../include/time_lib.h"
 
-
 double arithmetic_mean(double *v, int len) {
 
     double mu = 0.0;
