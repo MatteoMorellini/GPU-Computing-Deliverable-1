@@ -8,5 +8,5 @@
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
-module load CUDA/12.3.2
+module load CUDA/11.8.0
 ./bin/gpu

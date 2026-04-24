@@ -1,0 +1,100 @@
+Files in matrices directory:
+Read matrix bone010.mtx: 986703 rows, 986703 cols, 71666325 non-zeros
+row_ptr alignment: 0
+col_idx alignment: 0
+values  alignment: 0
+Running vectorized kernel for bone010.mtx...
+Average time for bone010.mtx: 0.000893140 s
+GFLOP/s for bone010.mtx: 160.481727
+Standard deviation of time for bone010.mtx: 0.000004699 s
+
+Read matrix webbase-1M.mtx: 1000005 rows, 1000005 cols, 3105536 non-zeros
+row_ptr alignment: 0
+col_idx alignment: 0
+values  alignment: 0
+Running vectorized kernel for webbase-1M.mtx...
+Average time for webbase-1M.mtx: 0.000113090 s
+GFLOP/s for webbase-1M.mtx: 54.921496
+Standard deviation of time for webbase-1M.mtx: 0.000000618 s
+
+Read matrix ASIC_680ks.mtx: 682712 rows, 682712 cols, 2329176 non-zeros
+row_ptr alignment: 0
+col_idx alignment: 0
+values  alignment: 0
+Running vectorized kernel for ASIC_680ks.mtx...
+Average time for ASIC_680ks.mtx: 0.000079550 s
+GFLOP/s for ASIC_680ks.mtx: 58.558793
+Standard deviation of time for ASIC_680ks.mtx: 0.000000753 s
+
+Read matrix ldoor.mtx: 952203 rows, 952203 cols, 46522475 non-zeros
+row_ptr alignment: 0
+col_idx alignment: 0
+values  alignment: 0
+Running vectorized kernel for ldoor.mtx...
+Average time for ldoor.mtx: 0.000539310 s
+GFLOP/s for ldoor.mtx: 172.525913
+Standard deviation of time for ldoor.mtx: 0.000000744 s
+
+Read matrix rajat31.mtx: 4690002 rows, 4690002 cols, 20316253 non-zeros
+row_ptr alignment: 0
+col_idx alignment: 0
+values  alignment: 0
+Running vectorized kernel for rajat31.mtx...
+Average time for rajat31.mtx: 0.000806990 s
+GFLOP/s for rajat31.mtx: 50.350693
+Standard deviation of time for rajat31.mtx: 0.000002707 s
+
+Read matrix Rucci1.mtx: 1977885 rows, 109900 cols, 7791168 non-zeros
+row_ptr alignment: 0
+col_idx alignment: 0
+values  alignment: 0
+Running vectorized kernel for Rucci1.mtx...
+Average time for Rucci1.mtx: 0.000216750 s
+GFLOP/s for Rucci1.mtx: 71.890824
+Standard deviation of time for Rucci1.mtx: 0.000003634 s
+
+Read matrix Ga41As41H72.mtx: 268096 rows, 268096 cols, 18488476 non-zeros
+row_ptr alignment: 0
+col_idx alignment: 0
+values  alignment: 0
+Running vectorized kernel for Ga41As41H72.mtx...
+Average time for Ga41As41H72.mtx: 0.000217100 s
+GFLOP/s for Ga41As41H72.mtx: 170.322211
+Standard deviation of time for Ga41As41H72.mtx: 0.000000831 s
+
+Read matrix FullChip.mtx: 2987012 rows, 2987012 cols, 26621990 non-zeros
+row_ptr alignment: 0
+col_idx alignment: 0
+values  alignment: 0
+Running vectorized kernel for FullChip.mtx...
+Average time for FullChip.mtx: 0.004299950 s
+GFLOP/s for FullChip.mtx: 12.382465
+Standard deviation of time for FullChip.mtx: 0.000003961 s
+
+Read matrix Si41Ge41H72.mtx: 185639 rows, 185639 cols, 15011265 non-zeros
+row_ptr alignment: 0
+col_idx alignment: 0
+values  alignment: 0
+Running vectorized kernel for Si41Ge41H72.mtx...
+Average time for Si41Ge41H72.mtx: 0.000180510 s
+GFLOP/s for Si41Ge41H72.mtx: 166.320592
+Standard deviation of time for Si41Ge41H72.mtx: 0.000001752 s
+
+Read matrix boyd2.mtx: 466316 rows, 466316 cols, 1500397 non-zeros
+row_ptr alignment: 0
+col_idx alignment: 0
+values  alignment: 0
+Running vectorized kernel for boyd2.mtx...
+Average time for boyd2.mtx: 0.000099420 s
+GFLOP/s for boyd2.mtx: 30.183001
+Standard deviation of time for boyd2.mtx: 0.000003118 s
+
+Read matrix eu-2005.mtx: 862664 rows, 862664 cols, 19235140 non-zeros
+row_ptr alignment: 0
+col_idx alignment: 0
+values  alignment: 0
+Running vectorized kernel for eu-2005.mtx...
+Average time for eu-2005.mtx: 0.000250620 s
+GFLOP/s for eu-2005.mtx: 153.500439
+Standard deviation of time for eu-2005.mtx: 0.000000704 s
+
