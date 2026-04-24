@@ -1,0 +1,56 @@
+Files in matrices directory:
+Read matrix bone010.mtx: 986703 rows, 986703 cols, 71666325 non-zeros
+Average time for bone010.mtx: 0.002051110 s
+GFLOP/s for bone010.mtx: 69.880528
+Standard deviation of time for bone010.mtx: 0.000016029 s
+
+Read matrix webbase-1M.mtx: 1000005 rows, 1000005 cols, 3105536 non-zeros
+Average time for webbase-1M.mtx: 0.000120530 s
+GFLOP/s for webbase-1M.mtx: 51.531337
+Standard deviation of time for webbase-1M.mtx: 0.000000591 s
+
+Read matrix ASIC_680ks.mtx: 682712 rows, 682712 cols, 2329176 non-zeros
+Average time for ASIC_680ks.mtx: 0.000020400 s
+GFLOP/s for ASIC_680ks.mtx: 228.350588
+Standard deviation of time for ASIC_680ks.mtx: 0.000000632 s
+
+Read matrix ldoor.mtx: 952203 rows, 952203 cols, 46522475 non-zeros
+Average time for ldoor.mtx: 0.001172520 s
+GFLOP/s for ldoor.mtx: 79.354681
+Standard deviation of time for ldoor.mtx: 0.000007897 s
+
+Read matrix rajat31.mtx: 4690002 rows, 4690002 cols, 20316253 non-zeros
+Average time for rajat31.mtx: 0.000349250 s
+GFLOP/s for rajat31.mtx: 116.342179
+Standard deviation of time for rajat31.mtx: 0.000001791 s
+
+Read matrix Rucci1.mtx: 1977885 rows, 109900 cols, 7791168 non-zeros
+Average time for Rucci1.mtx: 0.000027390 s
+GFLOP/s for Rucci1.mtx: 568.906024
+Standard deviation of time for Rucci1.mtx: 0.000000564 s
+
+Read matrix Ga41As41H72.mtx: 268096 rows, 268096 cols, 18488476 non-zeros
+Average time for Ga41As41H72.mtx: 0.000493210 s
+GFLOP/s for Ga41As41H72.mtx: 74.972024
+Standard deviation of time for Ga41As41H72.mtx: 0.000001862 s
+
+Read matrix FullChip.mtx: 2987012 rows, 2987012 cols, 26621990 non-zeros
+Average time for FullChip.mtx: 0.126167150 s
+GFLOP/s for FullChip.mtx: 0.422011
+Standard deviation of time for FullChip.mtx: 0.000019553 s
+
+Read matrix Si41Ge41H72.mtx: 185639 rows, 185639 cols, 15011265 non-zeros
+Average time for Si41Ge41H72.mtx: 0.000364210 s
+GFLOP/s for Si41Ge41H72.mtx: 82.431921
+Standard deviation of time for Si41Ge41H72.mtx: 0.000003064 s
+
+Read matrix boyd2.mtx: 466316 rows, 466316 cols, 1500397 non-zeros
+Average time for boyd2.mtx: 0.002418280 s
+GFLOP/s for boyd2.mtx: 1.240879
+Standard deviation of time for boyd2.mtx: 0.000001266 s
+
+Read matrix eu-2005.mtx: 862664 rows, 862664 cols, 19235140 non-zeros
+Average time for eu-2005.mtx: 0.000619150 s
+GFLOP/s for eu-2005.mtx: 62.134022
+Standard deviation of time for eu-2005.mtx: 0.000008106 s
+

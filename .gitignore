@@ -7,6 +7,5 @@ build/
 matrices/
 .venv/
 *.o
-*.out
 *.exe
 dummy/
