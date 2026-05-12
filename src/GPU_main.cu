@@ -209,6 +209,38 @@ int main(void) {
         
 
         cudaMemcpy(y, d_y, (size_t)csr_A.rows * sizeof(float), cudaMemcpyDeviceToHost);
+        
+        // -------------------------------------------------------
+        // CORRECTNESS CHECK: compare GPU result `y` with CPU `spmv_csr`
+        {
+            float *cpu_y = (float*)malloc((size_t)csr_A.rows * sizeof(float));
+            if (cpu_y) {
+                spmv_csr(&csr_A, x, cpu_y);
+                int mismatches = 0;
+                double max_abs_err = 0.0;
+                const float tol = 1e-4f;
+                for (int i = 0; i < csr_A.rows; i++) {
+                    float a = y[i];
+                    float b = cpu_y[i];
+                    float abs_err = fabsf(a - b);
+                    if (abs_err > tol * fmaxf(1.0f, fabsf(b))) {
+                        if (mismatches < 5)
+                            printf("  MISMATCH row %d: gpu=%g cpu=%g abs_err=%g\n", i, a, b, abs_err);
+                        mismatches++;
+                        if (abs_err > max_abs_err) max_abs_err = abs_err;
+                    }
+                }
+                if (mismatches) {
+                    printf("  CORRECTNESS: %d mismatches (max_abs_err=%g)\n", mismatches, max_abs_err);
+                    stats.valid = 0;
+                } else {
+                    printf("  CORRECTNESS: OK\n");
+                }
+                free(cpu_y);
+            } else {
+                fprintf(stderr, "Warning: could not allocate cpu_y for correctness check\n");
+            }
+        }
 
         // -------------------------------------------------------
         // PERFORMANCE METRICS SECTION
