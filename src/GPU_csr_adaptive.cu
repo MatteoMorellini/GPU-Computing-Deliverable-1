@@ -182,6 +182,9 @@ int main(void) {
     if (!csv) { closedir(d); return 1; }
 
     TIMER_DEF(0);
+    TIMER_DEF(1); // file parse
+    TIMER_DEF(2); // format conversion
+    TIMER_DEF(3); // H2D transfer
 
     while ((dir = readdir(d)) != NULL) {
         if (dir->d_name[0] == '.')
@@ -197,12 +200,19 @@ int main(void) {
         snprintf(path, sizeof(path), "%s%s", folder, dir->d_name);
 
         COO_Matrix A;
+        TIMER_START(1);
         read_mtx(path, &A);
+        TIMER_STOP(1);
+        double file_parse_s = TIMER_ELAPSED(1) / 1e6;
         printf("Read matrix %s: %d rows, %d cols, %d non-zeros\n",
                dir->d_name, A.rows, A.cols, A.nnz);
 
         CSR_Matrix csr_A;
+        TIMER_START(2);
         coo_to_csr(&A, &csr_A);
+        // note: build_row_blocks is also part of format conversion; timed below
+        TIMER_STOP(2);
+        double format_conv_s = TIMER_ELAPSED(2) / 1e6;
 
         PerfStats stats;
         memset(&stats, 0, sizeof(stats));
@@ -241,7 +251,10 @@ int main(void) {
         }
 
         int *h_row_blocks = NULL;
+        TIMER_START(2);
         int num_blocks = build_row_blocks(&csr_A, &h_row_blocks);
+        TIMER_STOP(2);
+        format_conv_s += TIMER_ELAPSED(2) / 1e6;
         printf("  CSR-Adaptive: %d CUDA blocks (target %d nnz/block)\n",
                num_blocks, NNZ_PER_BLOCK);
 
@@ -255,7 +268,11 @@ int main(void) {
         cudaMemcpy(d_y, y, (size_t)csr_A.rows * sizeof(float), cudaMemcpyHostToDevice);
 
         CSR_Matrix d_csr_A;
+        TIMER_START(3);
         csr_to_device(&csr_A, &d_csr_A);
+        cudaDeviceSynchronize();
+        TIMER_STOP(3);
+        double h2d_transfer_s = TIMER_ELAPSED(3) / 1e6;
 
         int *d_row_blocks = NULL;
         cudaMalloc((void**)&d_row_blocks, (size_t)(num_blocks + 1) * sizeof(int));
@@ -336,6 +353,9 @@ int main(void) {
         stats.avg_time_s = avg_time;
         stats.std_time_s = std_time;
         stats.gflops     = gflops;
+        stats.file_parse_s   = file_parse_s;
+        stats.format_conv_s  = format_conv_s;
+        stats.h2d_transfer_s = h2d_transfer_s;
 
         // -------------------------------------------------------
         printf("Average time for %s: %.9f s\n",            dir->d_name, stats.avg_time_s);
