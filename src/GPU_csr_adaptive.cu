@@ -1,18 +1,13 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <string.h>
-#include <math.h>
 #include <stdlib.h>
 extern "C" {
     #include "mtx_reader.h"
     #include "coo_to_csr.h"
-    #include "generate_dense.h"
     #include "csr_spvm.h"
-    #include "time_lib.h"
-    #include "perf_stats.h"
 }
-#define REPS 100
-#define WARMUP 5
+#include "gpu_common.cuh"
 
 // Threads per CUDA block. Also the target nonzero workload per block during
 // preprocessing: stream rows are packed up to this many nonzeros, and vector
@@ -92,24 +87,6 @@ __global__ void csr_adaptive_kernel(CSR_Matrix mat,
     }
 }
 
-// Allocate and transfer CSR matrix from host to device
-void csr_to_device(const CSR_Matrix *h_mat, CSR_Matrix *d_mat) {
-    d_mat->rows = h_mat->rows;
-    d_mat->cols = h_mat->cols;
-    d_mat->nnz  = h_mat->nnz;
-
-    cudaMalloc((void**)&d_mat->row_ptr, (h_mat->rows + 1) * sizeof(int));
-    cudaMalloc((void**)&d_mat->col_idx,  h_mat->nnz       * sizeof(int));
-    cudaMalloc((void**)&d_mat->values,   h_mat->nnz       * sizeof(float));
-
-    cudaMemcpy(d_mat->row_ptr, h_mat->row_ptr,
-               (h_mat->rows + 1) * sizeof(int),   cudaMemcpyHostToDevice);
-    cudaMemcpy(d_mat->col_idx, h_mat->col_idx,
-               h_mat->nnz        * sizeof(int),   cudaMemcpyHostToDevice);
-    cudaMemcpy(d_mat->values,  h_mat->values,
-               h_mat->nnz        * sizeof(float), cudaMemcpyHostToDevice);
-}
-
 // -----------------------------------------------------------------------------
 // Build the row_blocks array: a list of row boundaries such that every block
 // either packs consecutive short rows with total nnz <= NNZ_PER_BLOCK, or
@@ -177,8 +154,6 @@ int main(void) {
 
     printf("Files in matrices directory:\n");
 
-    TIMER_DEF(0);
-
     while ((dir = readdir(d)) != NULL) {
         if (dir->d_name[0] == '.')
             continue;
@@ -201,37 +176,16 @@ int main(void) {
         coo_to_csr(&A, &csr_A);
 
         PerfStats stats;
-        memset(&stats, 0, sizeof(stats));
-
-        strncpy(stats.name, dir->d_name, sizeof(stats.name) - 1);
-        strncpy(stats.format, "CSR", sizeof(stats.format) - 1);
-        strncpy(stats.implementation, "CUDA CSR-Adaptive", sizeof(stats.implementation) - 1);
-
-        stats.rows  = csr_A.rows;
-        stats.cols  = csr_A.cols;
-        stats.nnz   = csr_A.nnz;
-        stats.valid = 1;
+        gpu_init_perf_stats(&stats, dir->d_name, "CSR", "CUDA CSR-Adaptive", &csr_A);
 
         // -------------------------------------------------------
         // PREPARATION SECTION
 
-        float *x = (float*)malloc((size_t)csr_A.cols * sizeof(*x));
-
-        if (x == NULL) {
-            fprintf(stderr, "Error allocating memory for dense vector\n");
+        float *x = NULL;
+        float *y = NULL;
+        if (!gpu_create_host_vectors(&csr_A, &x, &y)) {
             free_coo(&A);
             free_csr(&csr_A);
-            closedir(d);
-            return 1;
-        }
-        fill_dense(x, (size_t)csr_A.cols);
-
-        float *y = (float*)malloc((size_t)csr_A.rows * sizeof(*y));
-        if (y == NULL) {
-            fprintf(stderr, "Error: could not allocate output vector y\n");
-            free_coo(&A);
-            free_csr(&csr_A);
-            free_dense(x);
             closedir(d);
             return 1;
         }
@@ -245,79 +199,63 @@ int main(void) {
         // MOVE TO GPU
         float *d_x = NULL;
         float *d_y = NULL;
-        cudaMalloc((void**)&d_x, (size_t)csr_A.cols * sizeof(float));
-        cudaMalloc((void**)&d_y, (size_t)csr_A.rows * sizeof(float));
-        cudaMemcpy(d_x, x, (size_t)csr_A.cols * sizeof(float), cudaMemcpyHostToDevice);
-        cudaMemcpy(d_y, y, (size_t)csr_A.rows * sizeof(float), cudaMemcpyHostToDevice);
+        gpu_dense_to_device(&csr_A, x, y, &d_x, &d_y);
 
         CSR_Matrix d_csr_A;
-        csr_to_device(&csr_A, &d_csr_A);
+        gpu_csr_to_device(&csr_A, &d_csr_A);
 
         int *d_row_blocks = NULL;
-        cudaMalloc((void**)&d_row_blocks, (size_t)(num_blocks + 1) * sizeof(int));
-        cudaMemcpy(d_row_blocks, h_row_blocks,
-                   (size_t)(num_blocks + 1) * sizeof(int),
-                   cudaMemcpyHostToDevice);
+        CHECK_CUDA(cudaMalloc((void**)&d_row_blocks, (size_t)(num_blocks + 1) * sizeof(int)));
+        CHECK_CUDA(cudaMemcpy(d_row_blocks, h_row_blocks,
+                              (size_t)(num_blocks + 1) * sizeof(int),
+                              cudaMemcpyHostToDevice));
 
         // -------------------------------------------------------
         // WARMUP + TIMING SECTION
 
         double times[REPS];
+        cudaEvent_t start, stop;
+        CHECK_CUDA(cudaEventCreate(&start));
+        CHECK_CUDA(cudaEventCreate(&stop));
 
         for (int r = 0; r < WARMUP; r++)
             csr_adaptive_kernel<<<num_blocks, NNZ_PER_BLOCK>>>(d_csr_A, d_row_blocks, d_x, d_y);
-        cudaDeviceSynchronize();
+        CHECK_CUDA(cudaGetLastError());
+        CHECK_CUDA(cudaDeviceSynchronize());
 
         for (int r = 0; r < REPS; r++) {
-            TIMER_START(0);
+            CHECK_CUDA(cudaEventRecord(start));
             csr_adaptive_kernel<<<num_blocks, NNZ_PER_BLOCK>>>(d_csr_A, d_row_blocks, d_x, d_y);
-            cudaDeviceSynchronize();
-            TIMER_STOP(0);
-            times[r] = TIMER_ELAPSED(0) / 1e6; // microseconds -> seconds
+            CHECK_CUDA(cudaGetLastError());
+            CHECK_CUDA(cudaEventRecord(stop));
+            CHECK_CUDA(cudaEventSynchronize(stop));
+
+            float elapsed_ms = 0.0f;
+            CHECK_CUDA(cudaEventElapsedTime(&elapsed_ms, start, stop));
+            times[r] = elapsed_ms / 1e3; // milliseconds -> seconds
         }
 
-        cudaMemcpy(y, d_y, (size_t)csr_A.rows * sizeof(float), cudaMemcpyDeviceToHost);
+        CHECK_CUDA(cudaEventDestroy(start));
+        CHECK_CUDA(cudaEventDestroy(stop));
+
+        gpu_copy_y_to_host(&csr_A, d_y, y);
 
         // -------------------------------------------------------
         // PERFORMANCE METRICS SECTION
 
-        double total_time = 0.0;
-        for (int r = 0; r < REPS; r++)
-            total_time += times[r];
-
-        double avg_time = total_time / REPS;
-        double gflops   = (2.0 * csr_A.nnz) / (avg_time * 1e9);
-
-        double variance = 0.0;
-        for (int r = 0; r < REPS; r++) {
-            double diff = times[r] - avg_time;
-            variance += diff * diff;
-        }
-        variance /= REPS;
-        double std_time = sqrt(variance);
-
-        stats.avg_time_s = avg_time;
-        stats.std_time_s = std_time;
-        stats.gflops     = gflops;
+        gpu_finalize_perf_stats(&stats, times, REPS, csr_A.nnz);
 
         // -------------------------------------------------------
-        printf("Average time for %s: %.9f s\n",            dir->d_name, stats.avg_time_s);
-        printf("GFLOP/s for %s: %.6f\n",                   dir->d_name, stats.gflops);
-        printf("Standard deviation of time for %s: %.9f s\n", dir->d_name, stats.std_time_s);
-        printf("\n");
+        gpu_print_perf_stats(dir->d_name, &stats);
 
-        cudaFree(d_x);
-        cudaFree(d_y);
-        cudaFree(d_row_blocks);
-        cudaFree(d_csr_A.row_ptr);
-        cudaFree(d_csr_A.col_idx);
-        cudaFree(d_csr_A.values);
+        gpu_free_dense(d_x, d_y);
+        CHECK_CUDA(cudaFree(d_row_blocks));
+        gpu_free_csr(&d_csr_A);
 
         free(h_row_blocks);
         free_coo(&A);
         free_csr(&csr_A);
-        free_dense(x);
-        free(y);
+        gpu_free_host_vectors(x, y);
     }
 
     closedir(d);
