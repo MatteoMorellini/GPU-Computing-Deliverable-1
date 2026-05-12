@@ -13,7 +13,25 @@ extern "C" {
 }
 #define REPS 100
 #define WARMUP 5
-#define NNZ_PER_BLOCK 1024
+
+// Threads per CUDA block. Also the target nonzero workload per block during
+// preprocessing: stream rows are packed up to this many nonzeros, and vector
+// rows reduce across this many threads.
+#define NNZ_PER_BLOCK 256
+
+// -----------------------------------------------------------------------------
+// CSR-Adaptive SpMV kernel (Greathouse & Daga).
+// Each CUDA block is assigned a contiguous range of rows [row_blocks[bid],
+// row_blocks[bid+1]). The preprocessing guarantees that either:
+//   (a) the range covers many rows (> STREAM_MIN_ROWS) whose total nnz fits in
+//       NNZ_PER_BLOCK
+//       -> CSR-Stream: every thread loads one nonzero product into shared
+//          memory, then each row is reduced sequentially by one thread.
+//   (b) the range covers few rows (1..STREAM_MIN_ROWS), potentially long
+//       -> CSR-Vector: the whole CUDA block strides through each row in turn
+//          and performs a shared-memory tree reduction per row.
+// -----------------------------------------------------------------------------
+#define STREAM_MIN_ROWS 8
 
 __global__ void csr_adaptive_kernel(CSR_Matrix mat,
                                     const int * __restrict__ row_blocks,
@@ -26,7 +44,7 @@ __global__ void csr_adaptive_kernel(CSR_Matrix mat,
     int num_rows  = row_end - row_start;
     int tid       = threadIdx.x;
 
-    if (num_rows > 1) {
+    if (num_rows > STREAM_MIN_ROWS) {
         // CSR-Stream: all nonzeros of this row range fit in NNZ_PER_BLOCK.
         int first_nz = mat.row_ptr[row_start];
         int last_nz  = mat.row_ptr[row_end];
@@ -49,25 +67,28 @@ __global__ void csr_adaptive_kernel(CSR_Matrix mat,
             y[row] = sum;
         }
     } else {
-        // CSR-Vector: a single row potentially much longer than NNZ_PER_BLOCK.
-        int row   = row_start;
-        int start = mat.row_ptr[row];
-        int end   = mat.row_ptr[row + 1];
+        // CSR-Vector (warp-per-row): each warp handles one row of the block.
+        // Requires blockDim.x to be a multiple of 32; with NNZ_PER_BLOCK = 256
+        // we have 8 warps, matching the STREAM_MIN_ROWS cap.
+        // the implicit assumption is: STREAM_MIN_ROWS ≤ blockDim.x / 32
+        int warp_id = tid >> 5;
+        int lane    = tid & 31;
 
-        float sum = 0.0f;
-        for (int j = start + tid; j < end; j += blockDim.x)
-            sum += mat.values[j] * x[mat.col_idx[j]];
+        if (warp_id < num_rows) {
+            int row   = row_start + warp_id;
+            int start = mat.row_ptr[row];
+            int end   = mat.row_ptr[row + 1];
 
-        lds[tid] = sum;
-        __syncthreads();
+            float sum = 0.0f;
+            for (int j = start + lane; j < end; j += 32)
+                sum += mat.values[j] * x[mat.col_idx[j]];
 
-        // Tree reduction inside the block.
-        for (int s = blockDim.x / 2; s > 0; s >>= 1) {
-            if (tid < s) lds[tid] += lds[tid + s];
-            __syncthreads();
+            // Warp-level tree reduction via shuffles (no shared memory).
+            for (int offset = 16; offset > 0; offset >>= 1)
+                sum += __shfl_down_sync(0xffffffff, sum, offset);
+
+            if (lane == 0) y[row] = sum;
         }
-
-        if (tid == 0) y[row] = lds[0];
     }
 }
 
@@ -89,7 +110,13 @@ void csr_to_device(const CSR_Matrix *h_mat, CSR_Matrix *d_mat) {
                h_mat->nnz        * sizeof(float), cudaMemcpyHostToDevice);
 }
 
+// -----------------------------------------------------------------------------
+// Build the row_blocks array: a list of row boundaries such that every block
+// either packs consecutive short rows with total nnz <= NNZ_PER_BLOCK, or
+// owns a single long row exclusively. Returns the number of CUDA blocks.
+// -----------------------------------------------------------------------------
 int build_row_blocks(const CSR_Matrix *csr, int **row_blocks_out) {
+    // Upper bound: at most rows + 1 entries (one block per row in the worst case).
     int *row_blocks = (int*)malloc((size_t)(csr->rows + 1) * sizeof(int));
     if (row_blocks == NULL) {
         fprintf(stderr, "Error allocating row_blocks\n");
@@ -115,7 +142,7 @@ int build_row_blocks(const CSR_Matrix *csr, int **row_blocks_out) {
                 // restart accumulation with this row.
                 row_blocks[++num_blocks] = row;
                 last_block_row = row;
-                row--;
+                row--;          // reprocess current row in the next block
                 sum_nnz = 0;
             } else {
                 // A single row exceeds NNZ_PER_BLOCK -> dedicate a block to it.
@@ -123,15 +150,6 @@ int build_row_blocks(const CSR_Matrix *csr, int **row_blocks_out) {
                 last_block_row = row + 1;
                 sum_nnz = 0;
             }
-        } else if ((row + 1) - last_block_row == NNZ_PER_BLOCK) {
-            // CSR-Stream uses one thread per row for the final reduction,
-            // so a block can hold at most blockDim.x = NNZ_PER_BLOCK rows.
-            // Without this guard, long runs of empty / very-sparse rows
-            // would pack >1024 rows into a block and the tail rows would
-            // never have y[row] written.
-            row_blocks[++num_blocks] = row + 1;
-            last_block_row = row + 1;
-            sum_nnz = 0;
         }
     }
 
@@ -142,8 +160,9 @@ int build_row_blocks(const CSR_Matrix *csr, int **row_blocks_out) {
     *row_blocks_out = row_blocks;
     return num_blocks;
 }
+
 int main(void) {
-    srand(0); 
+    srand(0); // set seed for reproducibility
 
     DIR *d;
     struct dirent *dir;

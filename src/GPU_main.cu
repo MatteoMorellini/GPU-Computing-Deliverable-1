@@ -177,7 +177,7 @@ int main(void) {
         double times[REPS];
         if (VECTOR) {
             printf("Running vectorized kernel for %s...\n", dir->d_name);
-            int threads_per_block = 512; // 8 warps per block
+            int threads_per_block = 256; // 8 warps per block
             int warps_per_block = threads_per_block / 32;
             int blocks = (d_csr_A.rows + warps_per_block - 1) / warps_per_block;
             for (int r = 0; r < WARMUP; r++)
