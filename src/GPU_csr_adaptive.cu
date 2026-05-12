@@ -289,13 +289,22 @@ int main(void) {
             csr_adaptive_kernel<<<num_blocks, NNZ_PER_BLOCK>>>(d_csr_A, d_row_blocks, d_x, d_y);
         cudaDeviceSynchronize();
 
+        cudaEvent_t start, stop;
+        cudaEventCreate(&start);
+        cudaEventCreate(&stop);
+
         for (int r = 0; r < REPS; r++) {
-            TIMER_START(0);
+            cudaEventRecord(start);
             csr_adaptive_kernel<<<num_blocks, NNZ_PER_BLOCK>>>(d_csr_A, d_row_blocks, d_x, d_y);
-            cudaDeviceSynchronize();
-            TIMER_STOP(0);
-            times[r] = TIMER_ELAPSED(0) / 1e6; // microseconds -> seconds
+            cudaEventRecord(stop);
+            cudaEventSynchronize(stop);
+            float milliseconds = 0.0f;
+            cudaEventElapsedTime(&milliseconds, start, stop);
+            times[r] = milliseconds / 1000.0; // convert ms to seconds
         }
+
+        cudaEventDestroy(start);
+        cudaEventDestroy(stop);
 
         cudaMemcpy(y, d_y, (size_t)csr_A.rows * sizeof(float), cudaMemcpyDeviceToHost);
         

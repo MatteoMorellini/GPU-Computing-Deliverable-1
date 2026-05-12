@@ -195,6 +195,10 @@ int main(void) {
         // WARMUP + TIMING SECTION
 
         double times[REPS];
+        cudaEvent_t start, stop;
+        cudaEventCreate(&start);
+        cudaEventCreate(&stop);
+
         if (VECTOR) {
             printf("Running vectorized kernel for %s...\n", dir->d_name);
             int threads_per_block = 256; // 8 warps per block
@@ -205,11 +209,13 @@ int main(void) {
                 cudaDeviceSynchronize(); 
 
             for (int r = 0; r < REPS; r++) {
-                TIMER_START(0);
+                cudaEventRecord(start);
                 CSR_vector_kernel<<<blocks, threads_per_block>>>(d_csr_A, d_x, d_y);
-                cudaDeviceSynchronize(); // forces the CPU to wait until the GPU finishes all previous work.
-                TIMER_STOP(0);
-                times[r] = TIMER_ELAPSED(0) / 1e6; // microseconds -> seconds
+                cudaEventRecord(stop);
+                cudaEventSynchronize(stop);
+                float milliseconds = 0.0f;
+                cudaEventElapsedTime(&milliseconds, start, stop);
+                times[r] = milliseconds / 1000.0; // convert ms to seconds
             }
         } else {
             printf("Running scalar kernel for %s...\n", dir->d_name);
@@ -218,13 +224,18 @@ int main(void) {
                 cudaDeviceSynchronize(); 
 
             for (int r = 0; r < REPS; r++) {
-                TIMER_START(0);
+                cudaEventRecord(start);
                 spmv_kernel<<<(csr_A.rows + 255) / 256, 256>>>(d_csr_A, d_x, d_y);
-                cudaDeviceSynchronize(); // forces the CPU to wait until the GPU finishes all previous work.
-                TIMER_STOP(0);
-                times[r] = TIMER_ELAPSED(0) / 1e6; // microseconds -> seconds
+                cudaEventRecord(stop);
+                cudaEventSynchronize(stop);
+                float milliseconds = 0.0f;
+                cudaEventElapsedTime(&milliseconds, start, stop);
+                times[r] = milliseconds / 1000.0; // convert ms to seconds
             }
         }
+
+        cudaEventDestroy(start);
+        cudaEventDestroy(stop);
 
         
 

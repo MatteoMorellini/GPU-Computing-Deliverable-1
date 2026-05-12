@@ -228,8 +228,12 @@ int main(void) {
             CHECK_CUDA(cudaDeviceSynchronize());
         }
 
+        cudaEvent_t start, stop;
+        CHECK_CUDA(cudaEventCreate(&start));
+        CHECK_CUDA(cudaEventCreate(&stop));
+
         for (int r = 0; r < REPS; r++) {
-            TIMER_START(0);
+            CHECK_CUDA(cudaEventRecord(start));
             CHECK_CUSPARSE(cusparseSpMV(
                 handle,
                 CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -239,10 +243,15 @@ int main(void) {
                 CUSPARSE_SPMV_CSR_ALG2,
                 dBuffer
             ));
-            CHECK_CUDA(cudaDeviceSynchronize());
-            TIMER_STOP(0);
-            times[r] = TIMER_ELAPSED(0) / 1e6; // microseconds -> seconds
+            CHECK_CUDA(cudaEventRecord(stop));
+            CHECK_CUDA(cudaEventSynchronize(stop));
+            float milliseconds = 0.0f;
+            CHECK_CUDA(cudaEventElapsedTime(&milliseconds, start, stop));
+            times[r] = milliseconds / 1000.0; // convert ms to seconds
         }
+
+        CHECK_CUDA(cudaEventDestroy(start));
+        CHECK_CUDA(cudaEventDestroy(stop));
 
         CHECK_CUDA(cudaMemcpy(y, d_y, (size_t)csr_A.rows * sizeof(float), cudaMemcpyDeviceToHost));
         
