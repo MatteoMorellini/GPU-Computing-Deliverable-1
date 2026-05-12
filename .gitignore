@@ -9,5 +9,5 @@ matrices/
 *.o
 *.exe
 dummy/
-./GPU_run.sh
-./CPU_run.sh
+matrices.txt
+images/

@@ -10,7 +10,8 @@
 #SBATCH --cpus-per-task=1
 module load CUDA/11.8.0
 
-./bin/device
+./bin/scalar
+./bin/vector
 ./bin/adaptive
+./bin/partial
 ./bin/cusparse
-./bin/gpu

@@ -1,41 +1,60 @@
 CC = gcc
 NV = nvcc
-CFLAGS = -Wall -Wextra -Iinclude
+
+CFLAGS    = -Wall -Wextra -Iinclude
 GPU_FLAGS = -Iinclude
-SRC = src/spmv_cpu_single_core.c src/mtx_reader.c src/coo_to_csr.c \
-	src/generate_dense.c src/csr_spvm.c src/time_lib.c
-INFO = src/get_matrix_info.c src/mtx_reader.c src/coo_to_csr.c
-GPU_CU  = src/GPU_main.cu
-GPU_ADAPTIVE_CU = src/GPU_csr_adaptive.cu
-GPU_PARTIAL_CU = src/GPU_csr_partial_overlap.cu
-GPU_CUSPARSE_CU = src/GPU_cusparse.cu
-GPU_C   = src/mtx_reader.c src/coo_to_csr.c \
-	src/generate_dense.c src/csr_spvm.c src/time_lib.c
-GPU_OBJS = $(GPU_C:.c=.o)
-OUT = bin/program
 
-all:
-	$(CC) $(CFLAGS) $(SRC) -o $(OUT) -lm
+# -----------------------------------------------------------------------------
+# Shared helper sources (compiled with gcc, linked into every binary)
+# -----------------------------------------------------------------------------
+LIB_C_SRC = src/io/mtx_reader.c     \
+            src/io/coo_to_csr.c     \
+            src/io/generate_dense.c \
+            src/cpu/csr_spvm.c      \
+            src/util/time_lib.c
 
-info:
-	$(CC) $(CFLAGS) $(INFO) -o bin/info -lm
+LIB_C_OBJ = $(LIB_C_SRC:.c=.o)
 
-# Step 1: compile each .c helper into a .o with gcc
+# -----------------------------------------------------------------------------
+# CPU baseline and one-off tools
+# -----------------------------------------------------------------------------
+CPU_SRC  = src/cpu/spmv_cpu_single_core.c $(LIB_C_SRC)
+INFO_SRC = src/tools/get_matrix_info.c src/io/mtx_reader.c src/io/coo_to_csr.c
+
+# -----------------------------------------------------------------------------
+# GPU kernel entrypoints
+# -----------------------------------------------------------------------------
+KERNEL_DIR = src/kernels
+
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Step 2: compile the .cu and link against the .o files
-gpu: $(GPU_OBJS)
-	$(NV) $(GPU_FLAGS) $(GPU_CU) $(GPU_OBJS) -o bin/gpu
+all: cpu
 
-adaptive: $(GPU_OBJS)
-	$(NV) $(GPU_FLAGS) $(GPU_ADAPTIVE_CU) $(GPU_OBJS) -o bin/adaptive
+cpu:
+	$(CC) $(CFLAGS) $(CPU_SRC) -o bin/program -lm
 
-partial: $(GPU_OBJS)
-	$(NV) $(GPU_FLAGS) -arch=sm_80 $(GPU_PARTIAL_CU) $(GPU_OBJS) -o bin/partial
+info:
+	$(CC) $(CFLAGS) $(INFO_SRC) -o bin/info -lm
 
-cusparse: $(GPU_OBJS)
-	$(NV) $(GPU_FLAGS) $(GPU_CUSPARSE_CU) $(GPU_OBJS) -o bin/cusparse -lcusparse
+scalar: $(LIB_C_OBJ)
+	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_scalar.cu $(LIB_C_OBJ) -o bin/scalar
+
+vector: $(LIB_C_OBJ)
+	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_vector.cu $(LIB_C_OBJ) -o bin/vector
+
+adaptive: $(LIB_C_OBJ)
+	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_adaptive.cu $(LIB_C_OBJ) -o bin/adaptive
+
+partial: $(LIB_C_OBJ)
+	$(NV) $(GPU_FLAGS) -arch=sm_80 $(KERNEL_DIR)/csr_partial_overlap.cu $(LIB_C_OBJ) -o bin/partial
+
+cusparse: $(LIB_C_OBJ)
+	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/cusparse.cu $(LIB_C_OBJ) -o bin/cusparse -lcusparse
+
+gpu: scalar vector adaptive partial cusparse
 
 clean:
-	rm -f $(OUT) bin/gpu bin/bcsr bin/adaptive bin/partial bin/dia bin/cusparse bin/info $(GPU_OBJS)
+	rm -f bin/program bin/info bin/scalar bin/vector bin/adaptive bin/partial bin/cusparse $(LIB_C_OBJ)
+
+.PHONY: all cpu info scalar vector adaptive partial cusparse gpu clean
