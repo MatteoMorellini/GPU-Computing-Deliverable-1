@@ -183,7 +183,7 @@ int main(void) {
             &alpha, matA, vecX,
             &beta,  vecY,
             CUDA_R_32F,
-            CUSPARSE_SPMV_ALG_DEFAULT,
+            CUSPARSE_SPMV_CSR_ALG2,
             &bufferSize
         ));
 
@@ -202,7 +202,7 @@ int main(void) {
                 &alpha, matA, vecX,
                 &beta,  vecY,
                 CUDA_R_32F,
-                CUSPARSE_SPMV_ALG_DEFAULT,
+                CUSPARSE_SPMV_CSR_ALG2,
                 dBuffer
             ));
             CHECK_CUDA(cudaDeviceSynchronize());
@@ -216,7 +216,7 @@ int main(void) {
                 &alpha, matA, vecX,
                 &beta,  vecY,
                 CUDA_R_32F,
-                CUSPARSE_SPMV_ALG_DEFAULT,
+                CUSPARSE_SPMV_CSR_ALG2,
                 dBuffer
             ));
             CHECK_CUDA(cudaDeviceSynchronize());
