@@ -92,6 +92,11 @@ int main(void) {
 
     printf("Files in matrices directory:\n");
 
+    FILE *csv = perf_stats_open_csv(
+        perf_stats_resolve_path(VECTOR ? "results/gpu_csr_vector.csv"
+                                       : "results/gpu_csr_scalar.csv"));
+    if (!csv) { closedir(d); return 1; }
+
     TIMER_DEF(0);
 
     while ((dir = readdir(d)) != NULL) {
@@ -120,7 +125,9 @@ int main(void) {
 
         strncpy(stats.name, dir->d_name, sizeof(stats.name) - 1);
         strncpy(stats.format, "CSR", sizeof(stats.format) - 1);
-        strncpy(stats.implementation, "CPU Single-Core", sizeof(stats.implementation) - 1);
+        strncpy(stats.implementation,
+                VECTOR ? "CUDA CSR-Vector" : "CUDA CSR-Scalar",
+                sizeof(stats.implementation) - 1);
 
         stats.rows  = csr_A.rows;
         stats.cols  = csr_A.cols;
@@ -236,6 +243,7 @@ int main(void) {
                 } else {
                     printf("  CORRECTNESS: OK\n");
                 }
+                stats.max_abs_error = max_abs_err;
                 free(cpu_y);
             } else {
                 fprintf(stderr, "Warning: could not allocate cpu_y for correctness check\n");
@@ -271,6 +279,8 @@ int main(void) {
         printf("Standard deviation of time for %s: %.9f s\n", dir->d_name, stats.std_time_s);
         printf("\n");
 
+        perf_stats_write_csv_row(csv, &stats);
+
         cudaFree(d_x);
         cudaFree(d_y);
         cudaFree(d_csr_A.row_ptr);
@@ -284,5 +294,6 @@ int main(void) {
     }
 
     closedir(d);
+    fclose(csv);
     return 0;
 }

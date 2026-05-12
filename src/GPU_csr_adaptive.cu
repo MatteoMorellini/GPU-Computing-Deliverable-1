@@ -177,6 +177,10 @@ int main(void) {
 
     printf("Files in matrices directory:\n");
 
+    FILE *csv = perf_stats_open_csv(
+        perf_stats_resolve_path("results/csr_adaptive.csv"));
+    if (!csv) { closedir(d); return 1; }
+
     TIMER_DEF(0);
 
     while ((dir = readdir(d)) != NULL) {
@@ -304,6 +308,7 @@ int main(void) {
                 } else {
                     printf("  CORRECTNESS: OK\n");
                 }
+                stats.max_abs_error = max_abs_err;
                 free(cpu_y);
             } else {
                 fprintf(stderr, "Warning: could not allocate cpu_y for correctness check\n");
@@ -338,6 +343,8 @@ int main(void) {
         printf("Standard deviation of time for %s: %.9f s\n", dir->d_name, stats.std_time_s);
         printf("\n");
 
+        perf_stats_write_csv_row(csv, &stats);
+
         cudaFree(d_x);
         cudaFree(d_y);
         cudaFree(d_row_blocks);
@@ -353,5 +360,6 @@ int main(void) {
     }
 
     closedir(d);
+    fclose(csv);
     return 0;
 }
