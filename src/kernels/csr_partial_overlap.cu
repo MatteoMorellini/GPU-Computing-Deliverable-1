@@ -180,8 +180,12 @@ __global__ void csr_partial_overlap_kernel(const BatchInfo * __restrict__ batche
     int my_batch_num = end_batch - start_batch;
 
     auto block = cg::this_thread_block();
-    __shared__ cuda::pipeline_shared_state<cuda::thread_scope_block, 2> pss;
-    auto pipeline = cuda::make_pipeline(block, &pss);
+    alignas(cuda::pipeline_shared_state<cuda::thread_scope_block, 2>) 
+        __shared__ unsigned char pss_storage[sizeof(cuda::pipeline_shared_state<cuda::thread_scope_block, 2>)];
+    auto pss = reinterpret_cast<cuda::pipeline_shared_state<cuda::thread_scope_block, 2>*>(pss_storage);
+    if (threadIdx.x == 0) new (pss) cuda::pipeline_shared_state<cuda::thread_scope_block, 2>();
+    __syncthreads();
+    auto pipeline = cuda::make_pipeline(block, pss);
 
     const int shared_off[2] = { 0, MAX_BATCH_SIZE };
 
@@ -294,9 +298,16 @@ struct CsrPartialOverlapImpl {
         int       *h_long   = nullptr;
         total_batches = build_batches(&h_csr, &h_batches, &h_long, &long_row_count);
 
-        B = sm_count;
-        if (B > total_batches) B = total_batches > 0 ? total_batches : 1;
-        block_batch_num = (total_batches + B - 1) / B;
+        // Max parallelism: target 2 batches per block (the minimum that still
+        // lets the double-buffered pipeline overlap one fetch with one compute).
+        // Fall back to sm_count blocks for tiny matrices so the GPU isn't
+        // under-occupied.
+        const int TARGET_BBN = 2;
+        B = (total_batches + TARGET_BBN - 1) / TARGET_BBN;
+        if (B < sm_count)      B = sm_count;
+        if (B > total_batches) B = total_batches;
+        if (B < 1)             B = 1;
+        block_batch_num = total_batches > 0 ? (total_batches + B - 1) / B : 0;
 
         if (total_batches > 0) {
             cudaMalloc((void**)&d_batches,

@@ -13,8 +13,8 @@ module load CUDA/11.8.0
 mkdir -p "$HOME/tmp/ncu"
 export TMPDIR="$HOME/tmp/ncu"
 ncu \
-  --kernel-name regex:csr_vector_kernel \
-  --launch-skip 5 \
+  --kernel-name regex:csr_adaptive_kernel \
+  --launch-skip 2 \
   --launch-count 1 \
   --section SpeedOfLight \
   --section MemoryWorkloadAnalysis \
