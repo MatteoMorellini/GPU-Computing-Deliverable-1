@@ -11,3 +11,7 @@ matrices/
 dummy/
 matrices.txt
 images/
+ncus/
+*.out
+*.err
+reports/
