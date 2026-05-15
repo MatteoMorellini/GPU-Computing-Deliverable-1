@@ -1,22 +1,9 @@
 #include "gpu_bench.cuh"
 
-// -----------------------------------------------------------------------------
-// CSR-Adaptive SpMV, faithful port of Greathouse & Daga (SC'14).
-//   - NNZ_PER_WG  = LOCAL_SIZE in the paper (Section V-A: 1024 is the optimal
-//     block size on the W9100 in single precision).
-//   - THREADS_PER_WG = 256 (Section IV: "We used 256 threads per workgroup").
-//   - SMALL_VALUE = 2 (Section V-A: "if a row block contains one or two rows,
-//     CSR-Vector will be used").
-//   - Wavefront width = 64 on AMD GCN. On CUDA we map "one wavefront per row"
-//     in CSR-Vector to one warp (32 threads) per row.
-// -----------------------------------------------------------------------------
 #define NNZ_PER_WG     1024
 #define THREADS_PER_WG 256
 #define SMALL_VALUE    2
 
-// -----------------------------------------------------------------------------
-// CSR-Adaptive kernel (Algorithm 4 + Algorithm 3 + CSR-Vector).
-// -----------------------------------------------------------------------------
 __global__ void csr_adaptive_paper_kernel(CSR_Matrix mat,
                                           const int * __restrict__ row_blocks,
                                           const float * __restrict__ x,
@@ -29,7 +16,6 @@ __global__ void csr_adaptive_paper_kernel(CSR_Matrix mat,
     const int localTID     = threadIdx.x;
 
     if (num_rows > SMALL_VALUE) {
-        // -------------------- CSR-Stream (Algorithm 3) -----------------------
         const int first_col      = mat.row_ptr[startRow];
         const int num_non_zeroes = mat.row_ptr[nextStartRow] - first_col;
 
@@ -40,7 +26,7 @@ __global__ void csr_adaptive_paper_kernel(CSR_Matrix mat,
         __syncthreads();
 
         // Scalar-style reduction: one thread per row. If num_rows exceeds
-        // THREADS_PER_WG, sweep with a while loop (Algorithm 3 lines 9-12).
+        // THREADS_PER_WG, sweep with a while loop
         int rows_done = 0;
         while (rows_done < num_rows) {
             const int local_row = rows_done + localTID;
@@ -57,9 +43,7 @@ __global__ void csr_adaptive_paper_kernel(CSR_Matrix mat,
             rows_done += THREADS_PER_WG;
         }
     } else {
-        // -------------------- CSR-Vector (one warp per row) ------------------
-        // The paper hands "one or two rows" blocks to CSR-Vector. With 256
-        // threads we have 8 warps available; we assign warp `warp_id` to the
+        // With 256 threads we have 8 warps available; we assign warp `warp_id` to the
         // row at offset `warp_id` (only warps 0 and 1 do useful work).
         const int warp_id = localTID >> 5;
         const int lane    = localTID & 31;
@@ -82,9 +66,6 @@ __global__ void csr_adaptive_paper_kernel(CSR_Matrix mat,
     }
 }
 
-// -----------------------------------------------------------------------------
-// Algorithm 2 (verbatim): build row_blocks on the CPU.
-// -----------------------------------------------------------------------------
 static int build_row_blocks_paper(const CSR_Matrix *csr, int **row_blocks_out) {
     const int totalRows = csr->rows;
     const int *row_delimiters = csr->row_ptr;

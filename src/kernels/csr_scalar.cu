@@ -1,6 +1,5 @@
 #include "gpu_bench.cuh"
 
-// One thread per row.
 __global__ void csr_scalar_kernel(CSR_Matrix mat,
                                   const float * __restrict__ x,
                                   float * __restrict__ y) {

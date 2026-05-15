@@ -5,7 +5,7 @@
 void fill_dense(float *x, size_t n)
 {
     for (size_t i = 0; i < n; i++) {
-        x[i] = (float)(rand() % 10 + 1);
+        x[i] = 2.0f * ((float)rand() / (float)RAND_MAX) - 1.0f;
     }
 }
 

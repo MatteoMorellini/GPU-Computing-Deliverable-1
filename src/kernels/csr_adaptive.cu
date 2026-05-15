@@ -21,7 +21,7 @@
 #define WARP_SIZE           32
 #define WARPS_PER_BLOCK     (THREADS_PER_BLOCK / WARP_SIZE)  // 8
 #define STREAM_PARALLEL_MAX 8     // <=8 rows -> warp-per-row reduction
-#define VECTOR_MAX_ROWS     2     // 1 or 2 rows that fit in LDS -> CSR-Vector
+#define VECTOR_MAX_ROWS     2    // 1 or 2 rows that fit in LDS -> CSR-Vector
 
 // =============================================================================
 // Helpers

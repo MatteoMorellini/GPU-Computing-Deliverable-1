@@ -26,7 +26,7 @@ __global__ void csr_vector_kernel(const CSR_Matrix mat,
 
 struct CsrVectorImpl : NoPrepImpl {
     void launch(const CSR_Matrix &d_csr, const float *d_x, float *d_y) {
-        int threads_per_block = 256;          // 8 warps per block
+        int threads_per_block = 256;         
         int warps_per_block   = threads_per_block / 32;
         int blocks = (d_csr.rows + warps_per_block - 1) / warps_per_block;
         csr_vector_kernel<<<blocks, threads_per_block>>>(d_csr, d_x, d_y);
