@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=GPU_deliverable-1
+#SBATCH --job-name=GPU_deliverable-1_ncu
 #SBATCH --output=my_output_%j.out
 #SBATCH --error=my_error_%j.err
 #SBATCH --partition=edu-short
@@ -12,11 +12,27 @@ module load CUDA/11.8.0
 
 mkdir -p "$HOME/tmp/ncu"
 export TMPDIR="$HOME/tmp/ncu"
-ncu \
-  --kernel-name regex:csr_partial_overlap_kernel \
-  --launch-skip 950 \
-  --launch-count 1 \
-  --section SpeedOfLight \
-  --section MemoryWorkloadAnalysis \
-  --section WarpStateStats \
-  ./bin/partial 
+mkdir -p results/ncu
+
+LAUNCH_SKIP=350
+LAUNCH_COUNT=1
+
+FORMATS=(vector adaptive partial cusparse)
+
+for bin in "${FORMATS[@]}"; do
+  [[ -x "./bin/${bin}" ]] || { echo "skip ${bin}: binary missing"; continue; }
+
+  echo "=== profiling ${bin} ==="
+  ncu \
+    --launch-skip ${LAUNCH_SKIP} \
+    --launch-count ${LAUNCH_COUNT} \
+    --section SpeedOfLight \
+    --section MemoryWorkloadAnalysis \
+    --section WarpStateStats \
+    --export "results/ncu/${bin}" \
+    --force-overwrite \
+    "./bin/${bin}"
+
+  ncu --import "results/ncu/${bin}.ncu-rep" \
+      > "results/ncu/${bin}.txt"
+done

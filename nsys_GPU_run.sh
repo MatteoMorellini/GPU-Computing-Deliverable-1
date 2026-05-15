@@ -10,4 +10,7 @@
 #SBATCH --cpus-per-task=1
 module load CUDA/11.8.0
 
-./bin/partial
+EXECUTABLE=./bin/cusparse
+REPORT_NAME=$(basename "$EXECUTABLE")
+
+nsys profile -o "$REPORT_NAME" "$EXECUTABLE"

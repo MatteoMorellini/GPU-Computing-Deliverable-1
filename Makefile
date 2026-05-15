@@ -46,6 +46,9 @@ vector: $(LIB_C_OBJ)
 adaptive: $(LIB_C_OBJ)
 	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_adaptive.cu $(LIB_C_OBJ) -o bin/adaptive
 
+adaptive_paper: $(LIB_C_OBJ)
+	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_adaptive_paper.cu $(LIB_C_OBJ) -o bin/adaptive_paper
+
 partial: $(LIB_C_OBJ)
 	$(NV) $(GPU_FLAGS) -arch=sm_80 $(KERNEL_DIR)/csr_partial_overlap.cu $(LIB_C_OBJ) -o bin/partial
 
@@ -55,9 +58,9 @@ partial_tune: $(LIB_C_OBJ)
 cusparse: $(LIB_C_OBJ)
 	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/cusparse.cu $(LIB_C_OBJ) -o bin/cusparse -lcusparse
 
-gpu: scalar vector adaptive partial cusparse
+gpu: scalar vector adaptive adaptive_paper partial cusparse
 
 clean:
-	rm -f bin/program bin/info bin/scalar bin/vector bin/adaptive bin/partial bin/partial_tune bin/cusparse $(LIB_C_OBJ)
+	rm -f bin/program bin/info bin/scalar bin/vector bin/adaptive bin/adaptive_paper bin/partial bin/partial_tune bin/cusparse $(LIB_C_OBJ)
 
-.PHONY: all cpu info scalar vector adaptive partial partial_tune cusparse gpu clean
+.PHONY: all cpu info scalar vector adaptive adaptive_paper partial partial_tune cusparse gpu clean

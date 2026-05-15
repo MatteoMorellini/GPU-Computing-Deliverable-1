@@ -298,13 +298,19 @@ struct CsrPartialOverlapImpl {
         int       *h_long   = nullptr;
         total_batches = build_batches(&h_csr, &h_batches, &h_long, &long_row_count);
 
-        // Max parallelism: target 2 batches per block (the minimum that still
-        // lets the double-buffered pipeline overlap one fetch with one compute).
-        // Fall back to sm_count blocks for tiny matrices so the GPU isn't
-        // under-occupied.
-        const int TARGET_BBN = 2;
+        // SpMV is DRAM-bound in both pipeline stages, so the in-block
+        // memcpy_async/compute overlap caps out at well below 2x. On A30 the
+        // 16 KB of shared memory per block limits occupancy to 2 resident
+        // blocks/SM, so latency hiding has to come from inter-block
+        // parallelism: many short-lived blocks let the scheduler swap fresh
+        // ones in while others stall on global memory. We therefore pick a
+        // small block_batch_num (just enough to amortize block launch and
+        // start the pipeline) and let B grow large. Floor at 2*sm_count so
+        // tiny matrices still saturate the device.
+        const int TARGET_BBN = 4;
         B = (total_batches + TARGET_BBN - 1) / TARGET_BBN;
-        if (B < sm_count)      B = sm_count;
+        const int B_FLOOR = 2 * sm_count;
+        if (B < B_FLOOR)       B = B_FLOOR;
         if (B > total_batches) B = total_batches;
         if (B < 1)             B = 1;
         block_batch_num = total_batches > 0 ? (total_batches + B - 1) / B : 0;
