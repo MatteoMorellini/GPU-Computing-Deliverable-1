@@ -7,11 +7,9 @@
 
 namespace cg = cooperative_groups;
 
-// Paper: max_batch_size >= 1024 gives well-balanced batches and rare long rows.
 #define MAX_BATCH_SIZE     1024
 #define THREADS_PER_BLOCK  128
 
-// Vector-size switch points vs. mean row length (Table 2).
 #define SWITCH_POINT_1     17
 #define SWITCH_POINT_2     34
 #define SWITCH_POINT_4     64
@@ -25,12 +23,7 @@ typedef struct {
     int end_nnz;     // exclusive
 } BatchInfo;
 
-// =============================================================================
-// Host-side: dynamic batch partition (Algorithm 3).
-//   - Extra-long rows (nnz > MAX_BATCH_SIZE) are recorded in long_rows.
-//   - Remaining rows are packed greedily into batches; each batch holds a
-//     whole number of rows with nnz sum <= MAX_BATCH_SIZE.
-// =============================================================================
+
 static int build_batches(const CSR_Matrix *csr,
                          BatchInfo **batches_out,
                          int **long_rows_out,
@@ -156,11 +149,7 @@ __device__ inline void dispatch_compute(const BatchInfo batch,
     else                             vector_compute<32>(batch, row_ptr, scol, sval, x, y);
 }
 
-// =============================================================================
-// CSR-Partial-Overlap kernel (Algorithm 4): two-stage pipeline using
-// cuda::memcpy_async to overlap global->shared copy of (values, col_idx) for
-// the next batch with the SpMV computation of the current batch.
-// =============================================================================
+
 __global__ void csr_partial_overlap_kernel(const BatchInfo * __restrict__ batches,
                                            int total_batches,
                                            int block_batch_num,
