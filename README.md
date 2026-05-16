@@ -1,167 +1,70 @@
-# SpMV Investigation — GPU Computing 2025-2026
+# GPU Computing — Deliverable 1: Sparse Matrix-Vector Multiplication
 
-> **Deliverable 1** · Sparse Matrix-Vector Multiplication on NVIDIA Ampere GPUs
+CSR-based SpMV kernels benchmarked on an NVIDIA A30 across ten matrices from the SuiteSparse Matrix Collection.
 
----
+**Author:** Matteo Morellini (268427) — University of Trento
+**Contact:** matteo.morellini@studenti.unitn.it
 
 ## Overview
 
-This project implements and evaluates **Sparse Matrix-Vector Multiplication (SpMV)** across multiple sparse storage formats on a single NVIDIA Ampere GPU. The study goes beyond a simple format comparison: it investigates how storage format, parallelization strategy, and memory access patterns jointly determine performance across matrices with diverse sparsity structures.
+Sparse matrix-vector multiplication is bandwidth-bound and highly sensitive to row-length distribution, memory coalescing, and long-row handling. This work compares five CSR-based SpMV implementations on a single GPU, restricting the scope to kernels that operate directly on CSR (no format conversion overhead).
 
-A CPU reference implementation is included for correctness validation. Results are benchmarked against [cuSPARSE](https://developer.nvidia.com/cusparse) as an industry baseline.
+## Kernels
 
----
+- **CSR-Scalar** — one thread per row. Weakest baseline; uncoalesced accesses and severe load imbalance on irregular rows.
+- **CSR-Vector** — one warp per row. Fully coalesced reads, but underutilized warps when rows are shorter than 32 elements.
+- **CSR-Adaptive** — dynamically groups contiguous rows into blocks and picks CSR-Stream or block-level CSR-Vector at runtime. Includes an improved variant with a dedicated `csr_longrow_kernel` for rows exceeding `NNZ_PER_BLOCK`.
+- **CSR-Partial-Overlap** — two-stage pipeline using `memcpy_async` (Ampere) to overlap global-to-shared transfers with computation.
+- **cuSPARSE** — NVIDIA's optimized baseline.
 
-## Goals
+## Experimental Setup
 
-- Implement a correct, validated **CPU baseline** (sequential and/or OpenMP)
-- Develop **at least two GPU kernels**:
-  - A straightforward CSR-parallel kernel
-  - An optimized kernel using shared memory and improved load balancing
-- Compare performance across **≥ 10 SuiteSparse matrices** spanning diverse sparsity regimes
-- Report **runtime** and **GFLOP/s** for all implementations
-- Explain performance differences in terms of matrix structure, memory behavior, and algorithmic technique
-
----
-
-## Repository Structure
-
-```
-.
-├── cpu/
-│   ├── spmv_cpu.c          # Sequential CPU SpMV reference
-│   └── spmv_omp.c          # Optional OpenMP baseline
-├── gpu/
-│   ├── spmv_csr_scalar.cu  # Naive CSR kernel (1 thread per row)
-│   ├── spmv_csr_vector.cu  # CSR-vector kernel (1 warp per row)
-│   └── spmv_optimized.cu   # Shared memory + load-balanced kernel
-├── formats/
-│   ├── csr.h               # CSR format utilities
-│   ├── coo.h               # COO format utilities
-│   └── ell.h               # ELL / HYB format utilities (optional)
-├── io/
-│   └── mmio.c / mmio.h     # Matrix Market (.mtx) file reader
-├── validation/
-│   └── validate.py         # Numerical correctness checker
-├── matrices/
-│   └── README.md           # Dataset description and download instructions
-├── results/
-│   ├── timings.csv         # Raw benchmark data
-│   └── plots/              # Generated figures
-├── report/
-│   └── report.pdf          # 4-page course report
-├── Makefile
-└── README.md
-```
-
----
+- GPU: NVIDIA A30
+- Precision: Float32 (validated against a sequential CPU CSR implementation with relative tolerance `1e-3`)
+- Timing: CUDA events, 100 repetitions after 5 warmup runs, excluding file parsing, format conversion, and host-to-device transfer
+- Throughput reported as `2 · nnz / t` GFLOP/s
+- Symmetric matrices stored in expanded form
 
 ## Dataset
 
-Ten matrices are selected from the [SuiteSparse Matrix Collection](https://sparse.tamu.edu/) to stress different access patterns:
+Ten matrices spanning diverse sparsity regimes:
+`ASIC_680ks`, `FullChip`, `Rucci1`, `Si41Ge41H72`, `bone010`, `boyd2`, `eu-2005`, `ldoor`, `rajat31`, `webbase-1M`.
 
-| # | Matrix | Rows | NNZ | Avg NNZ/row | Structure |
-|---|--------|------|-----|-------------|-----------|
-| 1 | *(TBD)* | | | | Structured / regular |
-| 2 | *(TBD)* | | | | Unstructured / irregular |
-| … | … | … | … | … | … |
+## Key Results (geometric mean across the portfolio)
 
-> Matrices are chosen to cover a range of sizes, average and variance of nonzeros per row, and degree of structural regularity, following the dataset used in [Chu et al., HPDC '23].
+| Kernel              | GFLOP/s |
+|---------------------|--------:|
+| cuSPARSE            |    96.4 |
+| CSR-Adaptive        |    59.4 |
+| CSR-Partial-Overlap |    40.0 |
+| CSR-Scalar          |    22.8 |
+| CSR-Vector          |    22.8 |
 
-Input vectors are randomly generated dense Float32 vectors with a **fixed random seed** for reproducibility.
+- **cuSPARSE** wins on 6 of 10 matrices and is the most robust (only 2.5× spread).
+- **CSR-Adaptive** is the strongest custom kernel and beats cuSPARSE on `ASIC_680ks` and `webbase-1M`.
+- **CSR-Scalar** wins on `Rucci1` and `rajat31` thanks to uniformly short rows that accidentally produce coalesced accesses.
+- **Long-row matrices** (`FullChip`, `boyd2`) collapse every kernel that lacks a dedicated long-row handler.
 
----
+## Ablation: CSR-Adaptive Improvements
 
-## Build Instructions
+Adding a `csr_longrow_kernel` that splits long rows into 1024-element chunks (each processed by an independent block with `atomicAdd` partial sums) yields:
 
-### Requirements
+- **18×** speedup on `FullChip` (5.7 → 102.3 GFLOP/s)
+- **8.4×** speedup on `boyd2` (7.4 → 62.1 GFLOP/s)
 
-- CUDA Toolkit ≥ 11.x (Ampere-compatible)
-- GCC ≥ 9 (for CPU code)
-- OpenMP (optional, for CPU parallel baseline)
-- cuSPARSE (bundled with CUDA Toolkit)
-- `make`
+Other matrices are unaffected or show minor regression from the block-size tradeoff.
 
-### Compile
+## Takeaways
 
-```bash
-# All targets
-make all
-
-# CPU only
-make cpu
-
-# GPU kernels
-make gpu
-
-# Clean
-make clean
-```
-
----
-
-## Usage
-
-```bash
-# Run CPU reference
-./spmv_cpu <matrix.mtx>
-
-# Run GPU kernel (CSR scalar)
-./spmv_gpu --format csr --kernel scalar --matrix <matrix.mtx>
-
-# Run optimized GPU kernel
-./spmv_gpu --format csr --kernel optimized --matrix <matrix.mtx>
-
-# Run all kernels on all matrices and dump results
-./run_benchmarks.sh
-```
-
-### Validation
-
-```bash
-python3 validation/validate.py --cpu output_cpu.txt --gpu output_gpu.txt --tol 1e-4
-```
-
-The tolerance `--tol` is configurable. Exact equality is checked for integer-like test cases; relative tolerance is used for Float32 results.
-
----
-
-## Implementations
-
-### CPU Baseline
-A sequential SpMV over CSR format used solely for correctness validation. An optional OpenMP version is provided for reference.
-
-### GPU Kernel 1 — CSR Scalar (Naive)
-One thread per row. Simple and correct, but suffers from **load imbalance** and **non-coalesced memory access** for irregular matrices.
-
-### GPU Kernel 2 — CSR Vector / Optimized
-One warp per row (or a tile-based approach). Uses **shared memory** for partial reductions and improves **load balancing** to better utilize Streaming Multiprocessors (SMs).
-
-> Further details and pseudocode are provided in the report.
-
----
-
-## Measurements
-
-| Metric | How reported |
-|--------|-------------|
-| Kernel time | CUDA events; excludes one-time setup costs |
-| GFLOP/s | Based on `2 · NNZ` FP operations per SpMV |
-| Repetitions | Median of N=100 runs (or best-of-N, justified in report) |
-| Memory behavior | Optional: cache-miss profiling via `nvprof` / Nsight Compute |
-
----
+- SpMV performance is determined by memory access efficiency and load balance, not floating-point throughput.
+- No single custom kernel is uniformly optimal — the best choice depends on row-length distribution.
+- Splitting work across multiple blocks is essential for extreme long rows.
+- The irregular gather `x[col_idx[j]]` remains the unaddressed bottleneck across all kernels.
 
 ## References
 
-1. Gao et al., *A Systematic Literature Survey of Sparse Matrix-Vector Multiplication*, arXiv 2404.06047, 2024.
-2. Chu et al., *Efficient Algorithm Design of Optimizing SpMV on GPU*, HPDC '23. DOI: 10.1145/3588195.3593002.
-3. Bell & Garland, *Implementing SpMV on Throughput-Oriented Processors*, SC '09.
-4. Greathouse & Daga, *Efficient SpMV on GPUs Using the CSR Storage Format*, SC14.
-5. Merrill & Garland, *Merge-Based Parallel SpMV*, SC16.
-
----
-
-## License
-
-For academic use only — GPU Computing course 2025-2026.
+1. N. Bell, M. Garland. *Implementing sparse matrix-vector multiplication on throughput-oriented processors.* SC '09.
+2. J. Gao et al. *A systematic literature survey of sparse matrix-vector multiplication.* arXiv:2404.06047, 2024.
+3. G. Chu et al. *Efficient algorithm design of optimizing SpMV on GPU.* HPDC '23.
+4. J. L. Greathouse, M. Daga. *Efficient sparse matrix-vector multiplication on GPUs using the CSR storage format.* SC '14.
+5. G. Zeng, Y. Zou. *Leveraging memory copy overlap for efficient sparse matrix-vector multiplication on GPUs.* Electronics 12(17), 2023.

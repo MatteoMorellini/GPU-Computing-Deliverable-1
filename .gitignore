@@ -1,6 +1,5 @@
 .history
 .DS_Store
-*.pdf
 bin/
 build/
 matrices/
