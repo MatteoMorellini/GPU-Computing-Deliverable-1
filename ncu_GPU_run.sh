@@ -29,6 +29,7 @@ for bin in "${FORMATS[@]}"; do
     --section SpeedOfLight \
     --section MemoryWorkloadAnalysis \
     --section WarpStateStats \
+    -k regex:csr_longrow_kernel \
     --export "results/ncu/${bin}" \
     --force-overwrite \
     "./bin/${bin}"
