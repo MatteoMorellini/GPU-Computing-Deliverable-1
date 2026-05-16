@@ -54,6 +54,44 @@ Adding a `csr_longrow_kernel` that splits long rows into 1024-element chunks (ea
 
 Other matrices are unaffected or show minor regression from the block-size tradeoff.
 
+## Reproducing the Results
+
+Prerequisites (run once from the project root, on the login node):
+
+1. Place the ten SuiteSparse matrices listed in [matrices.txt](matrices.txt) into [matrices/](matrices/) using exactly these filenames (already present in this repository):
+   `ASIC_680ks.mtx`, `FullChip.mtx`, `Rucci1.mtx`, `Si41Ge41H72.mtx`, `bone010.mtx`, `boyd2.mtx`, `eu-2005.mtx`, `ldoor.mtx`, `rajat31.mtx`, `webbase-1M.mtx`.
+2. Build every GPU binary:
+   ```
+   module load CUDA/11.8.0
+   make gpu        # builds scalar, vector, adaptive, adaptive_paper, partial, cusparse into ./bin/
+   ```
+3. Submit the main run script on a node providing an NVIDIA A30:
+   ```
+   sbatch GPU_run.sh
+   ```
+
+Each binary iterates internally over every `.mtx` file in [matrices/](matrices/), performs 5 warmup runs + 100 timed runs per matrix using CUDA events, validates against the sequential CPU CSR baseline (tolerance `1e-3`), and prints throughput as `2 · nnz / t` GFLOP/s. Collecting stdout from [GPU_run.sh](GPU_run.sh) reproduces the geometric-mean table above:
+
+| Binary                | Kernel              | Geo-mean GFLOP/s |
+|-----------------------|---------------------|-----------------:|
+| `./bin/cusparse`      | cuSPARSE            |             96.4 |
+| `./bin/adaptive_paper`| CSR-Adaptive        |             59.4 |
+| `./bin/partial`       | CSR-Partial-Overlap |             40.0 |
+| `./bin/scalar`        | CSR-Scalar          |             22.8 |
+| `./bin/vector`        | CSR-Vector          |             22.8 |
+
+For the long-row ablation (18× on `FullChip`, 8.4× on `boyd2`) build and run the improved adaptive variant that adds `csr_longrow_kernel`:
+```
+make adaptive
+./bin/adaptive
+```
+
+Companion scripts:
+
+- [CPU_run.sh](CPU_run.sh) — single-core CPU baseline (`./bin/program`, built via `make cpu`) used for correctness checks.
+- [nsys_GPU_run.sh](nsys_GPU_run.sh) — Nsight Systems timeline used for the overlap analysis of `csr_partial_overlap`.
+- [ncu_GPU_run.sh](ncu_GPU_run.sh) — Nsight Compute section dump (`SpeedOfLight`, `MemoryWorkloadAnalysis`, `WarpStateStats`) used for the per-kernel roofline / stall discussion and for the `csr_longrow_kernel` ablation on `FullChip`/`boyd2`.
+
 ## Takeaways
 
 - SpMV performance is determined by memory access efficiency and load balance, not floating-point throughput.
