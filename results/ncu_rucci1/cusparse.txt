@@ -1,0 +1,64 @@
+[167023] cusparse@127.0.0.1
+  void cusparse::load_balancing_kernel<(unsigned int)256, (unsigned int)8, (unsigned long)8192, int, int, cusparse::CsrmvOp<(int)256, float, (bool)1>, const int, const float, const float, float, int, float>(const T5 *, T4, T5, T5, int, const T4 *, T6, T7 *...) (3805, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ------------- ------------
+    Metric Name               Metric Unit Metric Value
+    ----------------------- ------------- ------------
+    DRAM Frequency          cycle/nsecond         1.21
+    SM Frequency            cycle/usecond       930.31
+    Elapsed Cycles                  cycle       128578
+    Memory Throughput                   %        71.07
+    DRAM Throughput                     %        56.69
+    Duration                      usecond       138.21
+    L1/TEX Cache Throughput             %        72.90
+    L2 Cache Throughput                 %        58.99
+    SM Active Cycles                cycle    123102.66
+    Compute (SM) Throughput             %        51.99
+    ----------------------- ------------- ------------
+
+    OPT   Memory is more heavily utilized than Compute: Look at the Memory Workload Analysis section to identify the L1 
+          bottleneck. Check memory replay (coalescing) metrics to make sure you're efficiently utilizing the bytes      
+          transferred. Also consider whether it is possible to do more work per memory access (kernel fusion) or        
+          whether there are values you can (re)compute.                                                                 
+
+    Section: Memory Workload Analysis
+    --------------------------- ------------ ------------
+    Metric Name                  Metric Unit Metric Value
+    --------------------------- ------------ ------------
+    Memory Throughput           Gbyte/second       528.72
+    Mem Busy                               %        71.07
+    Max Bandwidth                          %        56.69
+    L1/TEX Hit Rate                        %        47.29
+    L2 Compression Success Rate            %            0
+    L2 Compression Ratio                                0
+    L2 Hit Rate                            %        38.76
+    Mem Pipes Busy                         %        43.53
+    --------------------------- ------------ ------------
+
+    Section: Warp State Statistics
+    ---------------------------------------- ----------- ------------
+    Metric Name                              Metric Unit Metric Value
+    ---------------------------------------- ----------- ------------
+    Warp Cycles Per Issued Instruction             cycle        27.07
+    Warp Cycles Per Executed Instruction           cycle        27.13
+    Avg. Active Threads Per Warp                                30.37
+    Avg. Not Predicated Off Threads Per Warp                    27.71
+    ---------------------------------------- ----------- ------------
+
+    WRN   The optional metric smsp__pcsamp_sample_count could not be found. Collecting it as an additional metric could 
+          enable the rule to provide more guidance.                                                                     
+    ----- --------------------------------------------------------------------------------------------------------------
+    OPT   Est. Local Speedup: 38.69%                                                                                    
+          On average, each warp of this kernel spends 10.5 cycles being stalled waiting for a scoreboard dependency on  
+          a L1TEX (local, global, surface, texture) operation. Find the instruction producing the data being waited     
+          upon to identify the culprit. To reduce the number of cycles waiting on L1TEX data accesses verify the        
+          memory access patterns are optimal for the target architecture, attempt to increase cache hit rates by        
+          increasing data locality (coalescing), or by changing the cache configuration. Consider moving frequently     
+          used data to shared memory. This stall type represents about 38.7% of the total average of 27.1 cycles        
+          between issuing two instructions.                                                                             
+    ----- --------------------------------------------------------------------------------------------------------------
+    INF   Check the Warp Stall Sampling (All Samples) table for the top stall locations in your source based on         
+          sampling data. The Kernel Profiling Guide                                                                     
+          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-reference) provides more details    
+          on each stall reason.                                                                                         
+

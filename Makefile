@@ -46,8 +46,14 @@ vector: $(LIB_C_OBJ)
 adaptive: $(LIB_C_OBJ)
 	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_adaptive.cu $(LIB_C_OBJ) -o bin/adaptive
 
+adaptive_separate: $(LIB_C_OBJ)
+	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_adaptive_separate.cu $(LIB_C_OBJ) -o bin/adaptive_separate
+
 adaptive_paper: $(LIB_C_OBJ)
 	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_adaptive_paper.cu $(LIB_C_OBJ) -o bin/adaptive_paper
+
+adaptive_separate_updated: $(LIB_C_OBJ)
+	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_adaptive_separate_updated.cu $(LIB_C_OBJ) -o bin/adaptive_separate_updated
 
 partial: $(LIB_C_OBJ)
 	$(NV) $(GPU_FLAGS) -arch=sm_80 $(KERNEL_DIR)/csr_partial_overlap.cu $(LIB_C_OBJ) -o bin/partial

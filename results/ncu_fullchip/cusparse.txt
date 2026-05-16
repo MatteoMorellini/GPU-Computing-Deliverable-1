@@ -1,0 +1,49 @@
+[161800] cusparse@127.0.0.1
+  void cusparse::binary_search_partition_kernel<(int)128, (int)2048, int, int, cusparse::ScaleY<cusparse::MatrixWiseMulPolicy1<(bool)0, float>, int, float>, float>(const T4 *, T3, T4, int, T3 *, T5, T6 *...) (1954, 1, 1)x(128, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ------------- ------------
+    Metric Name               Metric Unit Metric Value
+    ----------------------- ------------- ------------
+    DRAM Frequency          cycle/nsecond         1.21
+    SM Frequency            cycle/usecond       927.55
+    Elapsed Cycles                  cycle        19418
+    Memory Throughput                   %        15.22
+    DRAM Throughput                     %         2.89
+    Duration                      usecond        20.93
+    L1/TEX Cache Throughput             %        32.80
+    L2 Cache Throughput                 %        22.39
+    SM Active Cycles                cycle      7361.66
+    Compute (SM) Throughput             %        18.27
+    ----------------------- ------------- ------------
+
+    OPT   This kernel exhibits low compute throughput and memory bandwidth utilization relative to the peak performance 
+          of this device. Achieved compute throughput and/or memory bandwidth below 60.0% of peak typically indicate    
+          latency issues. Look at Scheduler Statistics and Warp State Statistics for potential reasons.                 
+
+    Section: Memory Workload Analysis
+    --------------------------- ------------ ------------
+    Metric Name                  Metric Unit Metric Value
+    --------------------------- ------------ ------------
+    Memory Throughput           Gbyte/second        26.89
+    Mem Busy                               %         8.41
+    Max Bandwidth                          %        15.22
+    L1/TEX Hit Rate                        %         3.46
+    L2 Compression Success Rate            %            0
+    L2 Compression Ratio                                0
+    L2 Hit Rate                            %        91.97
+    Mem Pipes Busy                         %         4.55
+    --------------------------- ------------ ------------
+
+    Section: Warp State Statistics
+    ---------------------------------------- ----------- ------------
+    Metric Name                              Metric Unit Metric Value
+    ---------------------------------------- ----------- ------------
+    Warp Cycles Per Issued Instruction             cycle        21.67
+    Warp Cycles Per Executed Instruction           cycle        22.62
+    Avg. Active Threads Per Warp                                31.99
+    Avg. Not Predicated Off Threads Per Warp                    26.87
+    ---------------------------------------- ----------- ------------
+
+    WRN   The optional metric smsp__pcsamp_sample_count could not be found. Collecting it as an additional metric could 
+          enable the rule to provide more guidance.                                                                     
+

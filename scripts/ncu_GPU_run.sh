@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=GPU_deliverable-1_ncu
+#SBATCH --job-name=
 #SBATCH --output=my_output_%j.out
 #SBATCH --error=my_error_%j.err
 #SBATCH --partition=edu-short
@@ -14,10 +14,10 @@ mkdir -p "$HOME/tmp/ncu"
 export TMPDIR="$HOME/tmp/ncu"
 mkdir -p results/ncu
 
-LAUNCH_SKIP=350
+LAUNCH_SKIP=5
 LAUNCH_COUNT=1
 
-FORMATS=(vector adaptive partial cusparse)
+FORMATS=(vector adaptive partial cusparse adaptive_paper scalar)
 
 for bin in "${FORMATS[@]}"; do
   [[ -x "./bin/${bin}" ]] || { echo "skip ${bin}: binary missing"; continue; }
