@@ -7,16 +7,19 @@
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:a30.24:1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=8
 module load CUDA/11.8.0
+
+export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+export OMP_PLACES=cores
+export OMP_PROC_BIND=close
 
 # -----------------------------------------------------------------------------
 # Reproducing the results reported in report.pdf
 # -----------------------------------------------------------------------------
 # Prerequisites (run once from the project root, on the login node):
-#   1. Place the ten SuiteSparse matrices listed in matrices.txt into
-#      ./matrices/ using exactly these filenames (already present in this
-#      repository):
+#   1. Download the ten SuiteSparse matrices and place them in ./matrices/
+#      using exactly these filenames:
 #        ASIC_680ks.mtx  FullChip.mtx  Rucci1.mtx  Si41Ge41H72.mtx
 #        bone010.mtx     boyd2.mtx     eu-2005.mtx ldoor.mtx
 #        rajat31.mtx     webbase-1M.mtx
@@ -29,13 +32,13 @@ module load CUDA/11.8.0
 #
 # Each binary iterates internally over every .mtx file in ./matrices/,
 # performs 5 warmup runs + 100 timed runs per matrix using CUDA events,
-# validates against the sequential CPU CSR baseline (tol 1e-3), and prints
+# validates against the multicore OpenMP CPU CSR reference (tol 1e-3), and prints
 # GFLOP/s = 2 * nnz / t. The numbers in report.pdf Table / geo-mean column
 # are obtained by collecting the stdout produced below.
 #
 # Companion scripts:
-#   - CPU_run.sh       : runs the single-core CPU baseline (./bin/program,
-#                        built via `make cpu`) used for correctness checks.
+#   - CPU_run.sh       : runs the multicore OpenMP CPU baseline
+#                        (./bin/program_openmp, built via `make cpu_openmp`).
 #   - nsys_GPU_run.sh  : Nsight Systems timeline used for the overlap
 #                        analysis of csr_partial_overlap.
 #   - ncu_GPU_run.sh   : Nsight Compute section dump (SpeedOfLight,
@@ -55,4 +58,3 @@ module load CUDA/11.8.0
 # variant that adds csr_longrow_kernel:
 #   make adaptive
 #   ./bin/adaptive
-

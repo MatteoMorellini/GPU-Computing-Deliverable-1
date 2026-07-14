@@ -20,7 +20,7 @@ Sparse matrix-vector multiplication is bandwidth-bound and highly sensitive to r
 ## Experimental Setup
 
 - GPU: NVIDIA A30
-- Precision: Float32 (validated against a sequential CPU CSR implementation with relative tolerance `1e-3`)
+- Precision: Float32 (validated against a multicore OpenMP CPU CSR reference with double-precision accumulation and relative tolerance `1e-3`)
 - Timing: CUDA events, 100 repetitions after 5 warmup runs, excluding file parsing, format conversion, and host-to-device transfer
 - Throughput reported as `2 · nnz / t` GFLOP/s
 - Symmetric matrices stored in expanded form
@@ -58,7 +58,7 @@ Other matrices are unaffected or show minor regression from the block-size trade
 
 Prerequisites (run once from the project root, on the login node):
 
-1. Place the ten SuiteSparse matrices listed in [matrices.txt](matrices.txt) into [matrices/](matrices/) using exactly these filenames (already present in this repository):
+1. Download the ten SuiteSparse matrices and place them in `matrices/` using exactly these filenames:
    `ASIC_680ks.mtx`, `FullChip.mtx`, `Rucci1.mtx`, `Si41Ge41H72.mtx`, `bone010.mtx`, `boyd2.mtx`, `eu-2005.mtx`, `ldoor.mtx`, `rajat31.mtx`, `webbase-1M.mtx`.
 2. Build every GPU binary:
    ```
@@ -70,7 +70,11 @@ Prerequisites (run once from the project root, on the login node):
    sbatch GPU_run.sh
    ```
 
-Each binary iterates internally over every `.mtx` file in [matrices/](matrices/), performs 5 warmup runs + 100 timed runs per matrix using CUDA events, validates against the sequential CPU CSR baseline (tolerance `1e-3`), and prints throughput as `2 · nnz / t` GFLOP/s. Collecting stdout from [GPU_run.sh](GPU_run.sh) reproduces the geometric-mean table above:
+The job requests 16 CPU cores and uses them for the OpenMP correctness
+reference. GPU kernel timings are unaffected because validation runs after the
+CUDA timing loop.
+
+Each binary iterates internally over every `.mtx` file in [matrices/](matrices/), performs 5 warmup runs + 100 timed runs per matrix using CUDA events, validates against the multicore OpenMP CPU CSR reference with double-precision accumulation (relative tolerance `1e-3`), and prints throughput as `2 · nnz / t` GFLOP/s. Collecting stdout from [GPU_run.sh](GPU_run.sh) reproduces the geometric-mean table above:
 
 | Binary                | Kernel              | Geo-mean GFLOP/s |
 |-----------------------|---------------------|-----------------:|
@@ -88,11 +92,11 @@ make adaptive
 
 Companion scripts:
 
-- [CPU_run.sh](CPU_run.sh) — single-core CPU baseline (`./bin/program`, built via `make cpu`) used for correctness checks.
-- OpenMP CPU variant — build with `make cpu_openmp`, then run with
+- [CPU_run.sh](CPU_run.sh) — submits the multicore OpenMP CPU baseline (`./bin/program_openmp`, built via `make cpu_openmp`). To run it directly, use
   `OMP_NUM_THREADS=<threads> ./bin/program_openmp [matrix-directory]`. It
-  parallelizes independent CSR rows with static scheduling, validates against
-  the sequential implementation, and writes `results/cpu_openmp.csv`.
+  parallelizes independent CSR rows with static scheduling, checks its Float32
+  result against the shared double-precision OpenMP reference, and writes
+  `results/cpu_openmp.csv`.
 - [nsys_GPU_run.sh](nsys_GPU_run.sh) — Nsight Systems timeline used for the overlap analysis of `csr_partial_overlap`.
 - [ncu_GPU_run.sh](ncu_GPU_run.sh) — Nsight Compute section dump (`SpeedOfLight`, `MemoryWorkloadAnalysis`, `WarpStateStats`) used for the per-kernel roofline / stall discussion and for the `csr_longrow_kernel` ablation on `FullChip`/`boyd2`.
 

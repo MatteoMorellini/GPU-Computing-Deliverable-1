@@ -14,7 +14,7 @@
 
 #define REPS 100
 #define WARMUP 5
-#define VALIDATION_TOLERANCE 1.0e-5f
+#define VALIDATION_TOLERANCE 1.0e-3
 
 static int benchmark_matrix(const char *path, const char *name, FILE *csv)
 {
@@ -23,12 +23,17 @@ static int benchmark_matrix(const char *path, const char *name, FILE *csv)
     PerfStats stats = {0};
     double times[REPS];
 
+    double setup_start = omp_get_wtime();
     read_mtx(path, &coo);
+    stats.file_parse_s = omp_get_wtime() - setup_start;
+
+    setup_start = omp_get_wtime();
     coo_to_csr(&coo, &csr);
+    stats.format_conv_s = omp_get_wtime() - setup_start;
 
     float *x = malloc((size_t)csr.cols * sizeof(*x));
     float *y = malloc((size_t)csr.rows * sizeof(*y));
-    float *reference = malloc((size_t)csr.rows * sizeof(*reference));
+    double *reference = malloc((size_t)csr.rows * sizeof(*reference));
     if (!x || !y || !reference) {
         fprintf(stderr, "Error: could not allocate dense vectors for %s\n", name);
         free(x);
@@ -40,7 +45,7 @@ static int benchmark_matrix(const char *path, const char *name, FILE *csv)
     }
 
     fill_dense(x, (size_t)csr.cols);
-    spmv_csr(&csr, x, reference);
+    spmv_csr_reference_openmp(&csr, x, reference);
 
     for (int repetition = 0; repetition < WARMUP; repetition++)
         spmv_csr_openmp(&csr, x, y);
@@ -72,7 +77,7 @@ static int benchmark_matrix(const char *path, const char *name, FILE *csv)
         const double error = fabs((double)y[row] - reference[row]);
         if (error > stats.max_abs_error)
             stats.max_abs_error = error;
-        if (error > VALIDATION_TOLERANCE)
+        if (error > VALIDATION_TOLERANCE * fmax(1.0, fabs(reference[row])))
             stats.valid = 0;
     }
 

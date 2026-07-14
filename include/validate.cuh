@@ -11,7 +11,8 @@ extern "C" {
 #include "perf_stats.h"
 }
 
-// Compare a GPU result vector against a CPU baseline accumulated in double.
+// Compare a GPU result vector against the multicore CPU baseline. The CPU
+// implementation accumulates each row in double precision.
 // Updates stats->valid (0 on mismatch) and stats->max_abs_error.
 static inline void validate_vs_cpu(const CSR_Matrix *csr,
                                    const float *x,
@@ -20,16 +21,12 @@ static inline void validate_vs_cpu(const CSR_Matrix *csr,
     double *cpu_y = (double*)malloc((size_t)csr->rows * sizeof(double));
     if (!cpu_y) {
         fprintf(stderr, "Warning: could not allocate cpu_y for correctness check\n");
+        stats->valid = 0;
+        stats->max_abs_error = INFINITY;
         return;
     }
 
-    for (int i = 0; i < csr->rows; i++) {
-        double sum = 0.0;
-        for (int j = csr->row_ptr[i]; j < csr->row_ptr[i + 1]; j++) {
-            sum += (double)csr->values[j] * (double)x[csr->col_idx[j]];
-        }
-        cpu_y[i] = sum;
-    }
+    spmv_csr_reference_openmp(csr, x, cpu_y);
 
     int mismatches = 0;
     double max_abs_err = 0.0;
@@ -38,12 +35,12 @@ static inline void validate_vs_cpu(const CSR_Matrix *csr,
         double a = (double)gpu_y[i];
         double b = cpu_y[i];
         double abs_err = fabs(a - b);
+        if (abs_err > max_abs_err) max_abs_err = abs_err;
         if (abs_err > tol * fmax(1.0, fabs(b))) {
             if (mismatches < 5)
                 printf("  MISMATCH row %d: gpu=%g cpu=%g abs_err=%g\n",
                        i, a, b, abs_err);
             mismatches++;
-            if (abs_err > max_abs_err) max_abs_err = abs_err;
         }
     }
     if (mismatches) {

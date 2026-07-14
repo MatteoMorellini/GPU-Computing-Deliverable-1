@@ -1,9 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "mtx_reader.h"
-
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include "mtx_reader.h"
 
@@ -144,4 +140,3 @@ void free_coo(COO_Matrix *mat) {
     mat->cols = 0;
     mat->nnz = 0;
 }
-
