@@ -20,7 +20,7 @@ int main(void) {
 
     DIR *d;
     struct dirent *dir;
-    char folder[] = "./dummy/";
+    char folder[] = "./matrices/";
     char path[1024];
 
     d = opendir(folder);

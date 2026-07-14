@@ -89,6 +89,10 @@ make adaptive
 Companion scripts:
 
 - [CPU_run.sh](CPU_run.sh) — single-core CPU baseline (`./bin/program`, built via `make cpu`) used for correctness checks.
+- OpenMP CPU variant — build with `make cpu_openmp`, then run with
+  `OMP_NUM_THREADS=<threads> ./bin/program_openmp [matrix-directory]`. It
+  parallelizes independent CSR rows with static scheduling, validates against
+  the sequential implementation, and writes `results/cpu_openmp.csv`.
 - [nsys_GPU_run.sh](nsys_GPU_run.sh) — Nsight Systems timeline used for the overlap analysis of `csr_partial_overlap`.
 - [ncu_GPU_run.sh](ncu_GPU_run.sh) — Nsight Compute section dump (`SpeedOfLight`, `MemoryWorkloadAnalysis`, `WarpStateStats`) used for the per-kernel roofline / stall discussion and for the `csr_longrow_kernel` ablation on `FullChip`/`boyd2`.
 

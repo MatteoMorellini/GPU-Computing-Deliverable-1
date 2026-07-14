@@ -19,7 +19,9 @@ LIB_C_OBJ = $(LIB_C_SRC:.c=.o)
 # CPU baseline and one-off tools
 # -----------------------------------------------------------------------------
 CPU_SRC  = src/cpu/spmv_cpu_single_core.c $(LIB_C_SRC)
-INFO_SRC = src/tools/get_matrix_info.c src/io/mtx_reader.c src/io/coo_to_csr.c
+CPU_OPENMP_SRC = src/cpu/spmv_cpu_openmp.c \
+                 src/cpu/csr_spvm_openmp.c \
+                 $(LIB_C_SRC)
 
 # -----------------------------------------------------------------------------
 # GPU kernel entrypoints
@@ -29,13 +31,13 @@ KERNEL_DIR = src/kernels
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-all: cpu
+all: cpu cpu_openmp
 
 cpu:
 	$(CC) $(CFLAGS) $(CPU_SRC) -o bin/program -lm
 
-info:
-	$(CC) $(CFLAGS) $(INFO_SRC) -o bin/info -lm
+cpu_openmp:
+	$(CC) $(CFLAGS) -O3 -fopenmp $(CPU_OPENMP_SRC) -o bin/program_openmp -lm
 
 scalar: $(LIB_C_OBJ)
 	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_scalar.cu $(LIB_C_OBJ) -o bin/scalar
@@ -46,14 +48,8 @@ vector: $(LIB_C_OBJ)
 adaptive: $(LIB_C_OBJ)
 	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_adaptive.cu $(LIB_C_OBJ) -o bin/adaptive
 
-adaptive_separate: $(LIB_C_OBJ)
-	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_adaptive_separate.cu $(LIB_C_OBJ) -o bin/adaptive_separate
-
 adaptive_paper: $(LIB_C_OBJ)
 	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_adaptive_paper.cu $(LIB_C_OBJ) -o bin/adaptive_paper
-
-adaptive_separate_updated: $(LIB_C_OBJ)
-	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_adaptive_separate_updated.cu $(LIB_C_OBJ) -o bin/adaptive_separate_updated
 
 partial: $(LIB_C_OBJ)
 	$(NV) $(GPU_FLAGS) -arch=sm_80 $(KERNEL_DIR)/csr_partial_overlap.cu $(LIB_C_OBJ) -o bin/partial
@@ -67,6 +63,6 @@ cusparse: $(LIB_C_OBJ)
 gpu: scalar vector adaptive adaptive_paper partial cusparse
 
 clean:
-	rm -f bin/program bin/info bin/scalar bin/vector bin/adaptive bin/adaptive_paper bin/partial bin/partial_tune bin/cusparse $(LIB_C_OBJ)
+	rm -f bin/program bin/program_openmp bin/scalar bin/vector bin/adaptive bin/adaptive_paper bin/partial bin/partial_tune bin/cusparse $(LIB_C_OBJ)
 
-.PHONY: all cpu info scalar vector adaptive adaptive_paper partial partial_tune cusparse gpu clean
+.PHONY: all cpu cpu_openmp scalar vector adaptive adaptive_paper partial partial_tune cusparse gpu clean
