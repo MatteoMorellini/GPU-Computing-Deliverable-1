@@ -1,6 +1,8 @@
 CC = gcc
 NV = nvcc
 
+.DEFAULT_GOAL := all
+
 CFLAGS    = -Wall -Wextra -Iinclude
 GPU_FLAGS = -Iinclude
 OPENMP_FLAGS = -fopenmp
@@ -40,13 +42,13 @@ KERNEL_DIR = src/kernels
 $(OPENMP_C_OBJ): $(OPENMP_C_SRC)
 	$(CC) $(CFLAGS) $(OPENMP_FLAGS) -c $< -o $@
 
-all: cpu cpu_openmp
+all: cpu cpu_openmp scalar vector adaptive adaptive_paper partial cusparse
 
 cpu:
-	$(CC) $(CFLAGS) $(CPU_SRC) -o bin/program -lm
+	$(CC) $(CFLAGS) $(CPU_SRC) -o bin/cpu -lm
 
 cpu_openmp:
-	$(CC) $(CFLAGS) $(OPENMP_FLAGS) $(CPU_OPENMP_SRC) -o bin/program_openmp -lm
+	$(CC) $(CFLAGS) $(OPENMP_FLAGS) $(CPU_OPENMP_SRC) -o bin/cpu_openmp -lm
 
 scalar: $(GPU_LIB_OBJ)
 	$(NV) $(GPU_FLAGS) $(KERNEL_DIR)/csr_scalar.cu $(GPU_LIB_OBJ) $(NV_OPENMP_FLAGS) -o bin/scalar
@@ -69,6 +71,6 @@ cusparse: $(GPU_LIB_OBJ)
 gpu: scalar vector adaptive adaptive_paper partial cusparse
 
 clean:
-	rm -f bin/program bin/program_openmp bin/scalar bin/vector bin/adaptive bin/adaptive_paper bin/partial bin/cusparse $(LIB_C_OBJ) $(OPENMP_C_OBJ) src/cpu/csr_spvm.o src/util/time_lib.o
+	rm -f bin/cpu bin/cpu_openmp bin/scalar bin/vector bin/adaptive bin/adaptive_paper bin/partial bin/cusparse $(LIB_C_OBJ) $(OPENMP_C_OBJ) src/cpu/csr_spvm.o src/util/time_lib.o
 
 .PHONY: all cpu cpu_openmp scalar vector adaptive adaptive_paper partial cusparse gpu clean

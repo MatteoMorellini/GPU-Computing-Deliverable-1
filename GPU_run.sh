@@ -13,6 +13,7 @@ module load CUDA/11.8.0
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
 export OMP_PLACES=cores
 export OMP_PROC_BIND=close
+export OMP_DYNAMIC=false
 
 # -----------------------------------------------------------------------------
 # Reproducing the results reported in report.pdf
@@ -56,5 +57,4 @@ export OMP_PROC_BIND=close
 # For the long-row ablation in Section "CSR-Adaptive Improvements"
 # (18x speedup on FullChip, 8.4x on boyd2) build and run the improved
 # variant that adds csr_longrow_kernel:
-#   make adaptive
-#   ./bin/adaptive
+./bin/adaptive
